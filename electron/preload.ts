@@ -10,6 +10,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getChartData: (symbol: string, period: string, interval: string) =>
     ipcRenderer.invoke('get-chart-data', symbol, period, interval),
 
+  get5DayChanges: (symbols: string[]) =>
+    ipcRenderer.invoke('get-5day-changes', symbols),
+
   getWatchlist: () =>
     ipcRenderer.invoke('get-watchlist'),
 

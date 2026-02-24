@@ -1,0 +1,82 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-primary);
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  gap: 12px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.backBtn {
+  padding: 4px 10px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.backBtn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.tickerInfo {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.tickerSymbol {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--accent-orange);
+}
+
+.tickerName {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.tickerPrice {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 15px;
+  margin-left: 12px;
+}
+
+.tickerChange {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  margin-left: 4px;
+}
+
+.positive {
+  color: var(--positive);
+}
+
+.negative {
+  color: var(--negative);
+}
+
+.chartsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  flex: 1;
+  min-height: 0;
+  gap: 1px;
+  background: var(--border-color);
+}

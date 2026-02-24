@@ -1,6 +1,7 @@
 export interface StockQuote {
   symbol: string
   shortName: string
+  sector: string
   regularMarketPrice: number
   regularMarketChange: number
   regularMarketChangePercent: number
@@ -12,6 +13,7 @@ export interface StockQuote {
   fiftyTwoWeekHigh: number
   fiftyTwoWeekLow: number
   marketCap: number
+  fiveDayChangePercent?: number
 }
 
 export interface ChartPoint {
@@ -31,7 +33,7 @@ export interface ConstituentInfo {
 
 export type MarketIndex = 'sp500' | 'nasdaq100' | 'watchlist'
 
-export type SortField = 'symbol' | 'shortName' | 'regularMarketPrice' | 'regularMarketChange' | 'regularMarketChangePercent' | 'regularMarketVolume'
+export type SortField = 'symbol' | 'shortName' | 'regularMarketPrice' | 'regularMarketPreviousClose' | 'regularMarketChange' | 'regularMarketChangePercent' | 'regularMarketVolume' | 'fiveDayChangePercent'
 export type SortDirection = 'asc' | 'desc'
 
 export type ChartPeriod = '1d' | '1w' | '1mo' | '3mo' | '6mo' | '1y' | '5y'
@@ -43,6 +45,7 @@ declare global {
       getConstituents: (market: string) => Promise<ConstituentInfo[]>
       getStockQuotes: (symbols: string[]) => Promise<StockQuote[]>
       getChartData: (symbol: string, period: string, interval: string) => Promise<ChartPoint[]>
+      get5DayChanges: (symbols: string[]) => Promise<Record<string, number>>
       getWatchlist: () => Promise<string[]>
       addToWatchlist: (ticker: string) => Promise<string[]>
       removeFromWatchlist: (ticker: string) => Promise<string[]>

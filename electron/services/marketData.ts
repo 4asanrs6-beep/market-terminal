@@ -3,6 +3,7 @@ const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
 interface QuoteResult {
   symbol: string
   shortName: string
+  sector: string
   regularMarketPrice: number
   regularMarketChange: number
   regularMarketChangePercent: number
@@ -121,6 +122,7 @@ export async function getStockQuotes(symbols: string[]): Promise<QuoteResult[]> 
         results.push({
           symbol: q.symbol ?? '',
           shortName: q.shortName || q.longName || q.symbol || '',
+          sector: q.sector || '',
           regularMarketPrice: q.regularMarketPrice ?? 0,
           regularMarketChange: q.regularMarketChange ?? 0,
           regularMarketChangePercent: q.regularMarketChangePercent ?? 0,
@@ -141,6 +143,52 @@ export async function getStockQuotes(symbols: string[]): Promise<QuoteResult[]> 
 
   setCache(cacheKey, results)
   return results
+}
+
+async function fetch5DayForSymbol(symbol: string): Promise<{ symbol: string; change: number } | null> {
+  try {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=10d&interval=1d&includePrePost=false`
+    const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT } })
+    if (!res.ok) return null
+
+    const json = await res.json() as any
+    const chartResult = json.chart?.result?.[0]
+    if (!chartResult) return null
+
+    const closes: number[] = chartResult.indicators?.quote?.[0]?.close ?? []
+    const validCloses = closes.filter((c: any) => c != null)
+    if (validCloses.length >= 2) {
+      const daysBack = Math.min(5, validCloses.length - 1)
+      const oldClose = validCloses[validCloses.length - 1 - daysBack]
+      const newClose = validCloses[validCloses.length - 1]
+      if (oldClose > 0) {
+        return { symbol, change: ((newClose - oldClose) / oldClose) * 100 }
+      }
+    }
+  } catch {
+    // skip
+  }
+  return null
+}
+
+export async function get5DayChanges(symbols: string[]): Promise<Record<string, number>> {
+  const cacheKey = `5day:${[...symbols].sort().join(',')}`
+  const cached = getCached<Record<string, number>>(cacheKey)
+  if (cached) return cached
+
+  const result: Record<string, number> = {}
+  const concurrency = 30
+
+  for (let i = 0; i < symbols.length; i += concurrency) {
+    const batch = symbols.slice(i, i + concurrency)
+    const results = await Promise.all(batch.map(s => fetch5DayForSymbol(s)))
+    for (const r of results) {
+      if (r) result[r.symbol] = r.change
+    }
+  }
+
+  setCache(cacheKey, result)
+  return result
 }
 
 export async function getChartData(

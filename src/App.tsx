@@ -4,7 +4,7 @@ import { useMarketData } from './hooks/useMarketData'
 import { Header } from './components/Header'
 import { MarketTabs } from './components/MarketTabs'
 import { StockTable } from './components/StockTable'
-import { StockChart } from './components/StockChart'
+import { StockDetailPage } from './components/StockDetailPage'
 import { AddTickerModal } from './components/AddTickerModal'
 import styles from './styles/App.module.css'
 
@@ -39,21 +39,23 @@ export default function App() {
         />
       </div>
 
-      <div className={`${styles.main} ${!selectedSymbol ? styles.noChart : ''}`}>
-        <div className={styles.tableSection}>
-          <StockTable
-            quotes={quotes}
-            loading={loading}
-            searchQuery={searchQuery}
-            selectedSymbol={selectedSymbol}
-            onSelectStock={setSelectedSymbol}
-            onRefresh={refresh}
+      <div className={styles.main}>
+        {selectedSymbol ? (
+          <StockDetailPage
+            symbol={selectedSymbol}
+            quote={selectedQuote}
+            onBack={() => setSelectedSymbol(null)}
           />
-        </div>
-
-        {selectedSymbol && (
-          <div className={styles.chartSection}>
-            <StockChart symbol={selectedSymbol} quote={selectedQuote} />
+        ) : (
+          <div className={styles.tableSection}>
+            <StockTable
+              quotes={quotes}
+              loading={loading}
+              searchQuery={searchQuery}
+              selectedSymbol={selectedSymbol}
+              onSelectStock={setSelectedSymbol}
+              onRefresh={refresh}
+            />
           </div>
         )}
       </div>

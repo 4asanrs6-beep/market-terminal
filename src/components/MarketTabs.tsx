@@ -33,8 +33,8 @@ const tabStyle = {
 }
 
 const tabs: { id: MarketIndex; label: string; sub: string }[] = [
-  { id: 'sp500', label: 'S&P 500', sub: '主要約100銘柄' },
-  { id: 'nasdaq100', label: 'NASDAQ 100', sub: '主要約80銘柄' },
+  { id: 'sp500', label: 'S&P 500', sub: '全構成銘柄' },
+  { id: 'nasdaq100', label: 'NASDAQ 100', sub: '全構成銘柄' },
   { id: 'watchlist', label: 'ウォッチリスト', sub: 'カスタム' },
 ]
 

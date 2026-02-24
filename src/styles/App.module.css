@@ -21,20 +21,10 @@
 .main {
   grid-row: 2;
   grid-column: 2;
-  display: grid;
-  grid-template-rows: 1fr 1fr;
   overflow: hidden;
-}
-
-.main.noChart {
-  grid-template-rows: 1fr;
 }
 
 .tableSection {
-  overflow: hidden;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.chartSection {
+  height: 100%;
   overflow: hidden;
 }

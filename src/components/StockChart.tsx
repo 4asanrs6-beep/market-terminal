@@ -1,42 +1,25 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { createChart, IChartApi, ISeriesApi, ColorType } from 'lightweight-charts'
-import type { StockQuote, ChartPeriod, ChartType } from '../types/stock'
 import { useChartData } from '../hooks/useMarketData'
 import styles from '../styles/StockChart.module.css'
 
 interface StockChartProps {
-  symbol: string | null
-  quote: StockQuote | null
+  symbol: string
+  label: string
+  period: string
+  interval: string
+  chartType?: 'candlestick' | 'line'
 }
 
-const PERIODS: { value: ChartPeriod; label: string; interval: string }[] = [
-  { value: '1d', label: '1日', interval: '5m' },
-  { value: '1w', label: '1週', interval: '15m' },
-  { value: '1mo', label: '1月', interval: '1d' },
-  { value: '3mo', label: '3月', interval: '1d' },
-  { value: '6mo', label: '6月', interval: '1d' },
-  { value: '1y', label: '1年', interval: '1wk' },
-  { value: '5y', label: '5年', interval: '1mo' },
-]
-
-function formatNumber(n: number, decimals = 2): string {
-  return n.toLocaleString('en-US', {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  })
-}
-
-export function StockChart({ symbol, quote }: StockChartProps) {
+export function StockChart({ symbol, label, period, interval, chartType = 'candlestick' }: StockChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | ISeriesApi<'Line'> | null>(null)
   const volumeSeriesRef = useRef<ISeriesApi<'Histogram'> | null>(null)
 
-  const [period, setPeriod] = useState<ChartPeriod>('3mo')
-  const [chartType, setChartType] = useState<ChartType>('candlestick')
+  const { data, loading } = useChartData(symbol, period, interval)
 
-  const selectedPeriod = PERIODS.find(p => p.value === period)!
-  const { data, loading } = useChartData(symbol, period, selectedPeriod.interval)
+  const isIntraday = period === '1d' || period === '1w'
 
   // Create chart
   useEffect(() => {
@@ -64,7 +47,7 @@ export function StockChart({ symbol, quote }: StockChartProps) {
       },
       timeScale: {
         borderColor: '#2a2a2a',
-        timeVisible: period === '1d' || period === '1w',
+        timeVisible: isIntraday,
       },
       handleScale: true,
       handleScroll: true,
@@ -91,7 +74,7 @@ export function StockChart({ symbol, quote }: StockChartProps) {
       seriesRef.current = null
       volumeSeriesRef.current = null
     }
-  }, [])
+  }, [isIntraday])
 
   // Update series when data or chart type changes
   useEffect(() => {
@@ -109,8 +92,7 @@ export function StockChart({ symbol, quote }: StockChartProps) {
     }
 
     // Volume histogram
-    const volumeSeries = chart.addSeries({
-      type: 'Histogram',
+    const volumeSeries = chart.addHistogramSeries({
       color: '#26a69a',
       priceFormat: { type: 'volume' },
       priceScaleId: 'volume',
@@ -120,7 +102,7 @@ export function StockChart({ symbol, quote }: StockChartProps) {
     })
     volumeSeries.setData(
       data.map(d => ({
-        time: d.time,
+        time: d.time as any,
         value: d.volume,
         color: d.close >= d.open ? 'rgba(0,200,83,0.3)' : 'rgba(255,23,68,0.3)',
       }))
@@ -128,8 +110,7 @@ export function StockChart({ symbol, quote }: StockChartProps) {
     volumeSeriesRef.current = volumeSeries
 
     if (chartType === 'candlestick') {
-      const series = chart.addSeries({
-        type: 'Candlestick',
+      const series = chart.addCandlestickSeries({
         upColor: '#00c853',
         downColor: '#ff1744',
         borderDownColor: '#ff1744',
@@ -139,7 +120,7 @@ export function StockChart({ symbol, quote }: StockChartProps) {
       })
       series.setData(
         data.map(d => ({
-          time: d.time,
+          time: d.time as any,
           open: d.open,
           high: d.high,
           low: d.low,
@@ -148,14 +129,13 @@ export function StockChart({ symbol, quote }: StockChartProps) {
       )
       seriesRef.current = series
     } else {
-      const series = chart.addSeries({
-        type: 'Line',
+      const series = chart.addLineSeries({
         color: '#ff8c00',
         lineWidth: 2,
       })
       series.setData(
         data.map(d => ({
-          time: d.time,
+          time: d.time as any,
           value: d.close,
         }))
       )
@@ -165,75 +145,12 @@ export function StockChart({ symbol, quote }: StockChartProps) {
     chart.timeScale().fitContent()
   }, [data, chartType])
 
-  // Update time scale visibility when period changes
-  useEffect(() => {
-    if (chartRef.current) {
-      chartRef.current.applyOptions({
-        timeScale: {
-          timeVisible: period === '1d' || period === '1w',
-        },
-      })
-    }
-  }, [period])
-
-  if (!symbol) {
-    return (
-      <div className={styles.container}>
-        <div className={styles.placeholder}>
-          <div className={styles.placeholderIcon}>&#x1F4C8;</div>
-          銘柄をクリックしてチャートを表示
-        </div>
-      </div>
-    )
-  }
-
-  const isPositive = quote ? quote.regularMarketChange >= 0 : true
-  const changeClass = isPositive ? styles.positive : styles.negative
-
   return (
-    <div className={styles.container}>
-      <div className={styles.toolbar}>
-        <div className={styles.tickerInfo}>
-          <span className={styles.tickerSymbol}>{symbol}</span>
-          {quote && (
-            <>
-              <span className={styles.tickerName}>{quote.shortName}</span>
-              <span className={`${styles.tickerPrice} ${changeClass}`}>
-                {formatNumber(quote.regularMarketPrice)}
-              </span>
-              <span className={`${styles.tickerChange} ${changeClass}`}>
-                {isPositive ? '+' : ''}{formatNumber(quote.regularMarketChange)}
-                ({isPositive ? '+' : ''}{formatNumber(quote.regularMarketChangePercent)}%)
-              </span>
-            </>
-          )}
-        </div>
-
-        <div className={styles.spacer} />
-
-        <div className={styles.periodButtons}>
-          {PERIODS.map(p => (
-            <button
-              key={p.value}
-              className={`${styles.periodBtn} ${period === p.value ? styles.active : ''}`}
-              onClick={() => setPeriod(p.value)}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-
-        <button
-          className={styles.chartTypeBtn}
-          onClick={() => setChartType(t => t === 'candlestick' ? 'line' : 'candlestick')}
-        >
-          {chartType === 'candlestick' ? 'ローソク' : 'ライン'}
-        </button>
-      </div>
-
+    <div className={styles.chartPanel}>
+      <div className={styles.chartLabel}>{label}</div>
       <div className={styles.chartArea} ref={chartContainerRef}>
         {loading && (
-          <div className={styles.loading}>チャート読込中...</div>
+          <div className={styles.loading}>読込中...</div>
         )}
       </div>
     </div>

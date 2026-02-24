@@ -17,11 +17,22 @@ export function useMarketData(market: MarketIndex) {
       return
     }
     try {
+      // Show quotes immediately
       const data = await window.electronAPI.getStockQuotes(symbols)
       setQuotes(data)
+      setLoading(false)
+
+      // Fill in 5-day changes asynchronously
+      window.electronAPI.get5DayChanges(symbols).then(fiveDayMap => {
+        setQuotes(prev => prev.map(q => ({
+          ...q,
+          fiveDayChangePercent: fiveDayMap[q.symbol] ?? undefined,
+        })))
+      }).catch(err => {
+        console.error('Failed to fetch 5-day changes:', err)
+      })
     } catch (err) {
       console.error('Failed to fetch quotes:', err)
-    } finally {
       setLoading(false)
     }
   }, [])

@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
 import path from 'path'
 import fs from 'fs'
-import { getStockQuotes, getChartData } from './services/marketData'
+import { getStockQuotes, getChartData, get5DayChanges } from './services/marketData'
 import { getConstituents, MarketIndex } from './services/constituents'
 
 const DIST = path.join(__dirname, '../dist')
@@ -66,6 +66,15 @@ ipcMain.handle('get-stock-quotes', async (_event, symbols: string[]) => {
   } catch (err) {
     console.error('get-stock-quotes error:', err)
     return []
+  }
+})
+
+ipcMain.handle('get-5day-changes', async (_event, symbols: string[]) => {
+  try {
+    return await get5DayChanges(symbols)
+  } catch (err) {
+    console.error('get-5day-changes error:', err)
+    return {}
   }
 })
 
