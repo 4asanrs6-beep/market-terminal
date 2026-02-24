@@ -1,0 +1,22 @@
+{
+  "appId": "com.market-terminal.app",
+  "productName": "Market Terminal",
+  "directories": {
+    "output": "release"
+  },
+  "files": [
+    "dist/**/*",
+    "dist-electron/**/*",
+    "node_modules/yahoo-finance2/**/*"
+  ],
+  "win": {
+    "target": [
+      {
+        "target": "dir",
+        "arch": ["x64"]
+      }
+    ],
+    "icon": null
+  },
+  "asar": false
+}
