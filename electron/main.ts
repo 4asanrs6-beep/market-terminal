@@ -3,6 +3,8 @@ import path from 'path'
 import fs from 'fs'
 import { getStockQuotes, getChartData, get5DayChanges, getQuoteSummary, getFinancials, getSparklines, clearCache } from './services/marketData'
 import { getConstituents, getSectorsForSymbols, MarketIndex } from './services/constituents'
+import { generateMarketCommentary } from './services/aiService'
+import { fetchNewsForSymbols } from './services/newsService'
 
 const DIST = path.join(__dirname, '../dist')
 const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
@@ -230,6 +232,51 @@ ipcMain.handle('open-chart-window', async (_event, symbol: string) => {
 
 ipcMain.handle('clear-cache', async () => {
   clearCache()
+})
+
+// --- AI IPC Handlers ---
+
+ipcMain.handle('ai-market-commentary', async (event, summary) => {
+  const requestId = Date.now().toString()
+  const sender = event.sender
+
+  // 1) Fetch news BEFORE returning requestId (renderer shows loading spinner)
+  const gainers = (summary.topGainers ?? []).slice(0, 5).map((g: any) => g.symbol as string)
+  const losers = (summary.topLosers ?? []).slice(0, 5).map((l: any) => l.symbol as string)
+  const newsSymbols = [...new Set([...gainers, ...losers])]
+
+  let news: Record<string, { title: string; publisher: string; publishedAt?: string }[]> = {}
+  try {
+    if (newsSymbols.length > 0) {
+      news = await fetchNewsForSymbols(newsSymbols)
+      const totalArticles = Object.values(news).reduce((sum, items) => sum + items.length, 0)
+      console.log(`[news] ${totalArticles} articles for ${newsSymbols.length} symbols`)
+    }
+  } catch (err) {
+    console.error('News fetch failed, continuing without news:', err)
+  }
+
+  // 2) Start streaming AFTER returning requestId
+  //    (setTimeout guarantees renderer has received requestId)
+  setTimeout(async () => {
+    try {
+      const gen = generateMarketCommentary(summary, news)
+      for await (const text of gen) {
+        if (!sender.isDestroyed()) {
+          sender.send('ai-stream-chunk', { requestId, text })
+        }
+      }
+      if (!sender.isDestroyed()) {
+        sender.send('ai-stream-done', { requestId })
+      }
+    } catch (err: any) {
+      if (!sender.isDestroyed()) {
+        sender.send('ai-stream-error', { requestId, error: err.message || 'Unknown error' })
+      }
+    }
+  }, 0)
+
+  return requestId
 })
 
 app.on('window-all-closed', () => {

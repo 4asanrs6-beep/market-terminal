@@ -48,4 +48,23 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   clearCache: () =>
     ipcRenderer.invoke('clear-cache'),
+
+  // AI
+  aiMarketCommentary: (summary: any) =>
+    ipcRenderer.invoke('ai-market-commentary', summary),
+
+  onAIStreamChunk: (cb: (data: { requestId: string; text: string }) => void) =>
+    ipcRenderer.on('ai-stream-chunk', (_e, d) => cb(d)),
+
+  onAIStreamDone: (cb: (data: { requestId: string }) => void) =>
+    ipcRenderer.on('ai-stream-done', (_e, d) => cb(d)),
+
+  onAIStreamError: (cb: (data: { requestId: string; error: string }) => void) =>
+    ipcRenderer.on('ai-stream-error', (_e, d) => cb(d)),
+
+  removeAIStreamListeners: () => {
+    ipcRenderer.removeAllListeners('ai-stream-chunk')
+    ipcRenderer.removeAllListeners('ai-stream-done')
+    ipcRenderer.removeAllListeners('ai-stream-error')
+  },
 })

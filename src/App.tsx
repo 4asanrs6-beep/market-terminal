@@ -6,6 +6,7 @@ import { MarketTabs } from './components/MarketTabs'
 import { StockTable, type ViewMode } from './components/StockTable'
 import { SectorHeatmap } from './components/SectorHeatmap'
 import { AddTickerModal } from './components/AddTickerModal'
+import { AIMarketPanel } from './components/AIMarketPanel'
 import styles from './styles/App.module.css'
 
 export default function App() {
@@ -13,6 +14,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('')
   const [showAddModal, setShowAddModal] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('table')
+  const [showAIPanel, setShowAIPanel] = useState(false)
 
   const {
     watchlists,
@@ -43,10 +45,19 @@ export default function App() {
     }
   }, [activeMarket, deleteWatchlist])
 
+  const handleToggleAI = useCallback(() => {
+    setShowAIPanel(prev => !prev)
+  }, [])
+
   return (
-    <div className={styles.app}>
+    <div className={`${styles.app} ${showAIPanel ? styles.withAI : ''}`}>
       <div className={styles.header}>
-        <Header searchQuery={searchQuery} onSearchChange={setSearchQuery} />
+        <Header
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          aiActive={showAIPanel}
+          onToggleAI={handleToggleAI}
+        />
       </div>
 
       <div className={styles.sidebar}>
@@ -91,6 +102,16 @@ export default function App() {
           )}
         </div>
       </div>
+
+      {showAIPanel && (
+        <div className={styles.aiPanel}>
+          <AIMarketPanel
+            quotes={quotes}
+            activeMarket={activeMarket}
+            onClose={() => setShowAIPanel(false)}
+          />
+        </div>
+      )}
 
       <AddTickerModal
         isOpen={showAddModal}

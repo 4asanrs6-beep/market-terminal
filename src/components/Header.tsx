@@ -4,9 +4,11 @@ import styles from '../styles/Header.module.css'
 interface HeaderProps {
   searchQuery: string
   onSearchChange: (query: string) => void
+  aiActive?: boolean
+  onToggleAI?: () => void
 }
 
-export function Header({ searchQuery, onSearchChange }: HeaderProps) {
+export function Header({ searchQuery, onSearchChange, aiActive, onToggleAI }: HeaderProps) {
   const [time, setTime] = useState(new Date())
 
   useEffect(() => {
@@ -61,6 +63,14 @@ export function Header({ searchQuery, onSearchChange }: HeaderProps) {
         <div className={`${styles.statusDot} ${isMarketOpen ? '' : styles.closed}`} />
         {isMarketOpen ? '取引中' : '取引時間外'}
       </div>
+
+      <button
+        className={`${styles.aiBtn} ${aiActive ? styles.aiBtnActive : ''}`}
+        onClick={onToggleAI}
+        title="AI Market Brief"
+      >
+        AI
+      </button>
 
       <div className={styles.clock}>
         NY {nyTime} | TKY {jpTime}

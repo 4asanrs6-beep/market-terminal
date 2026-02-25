@@ -111,6 +111,12 @@ declare global {
       getSparklines: (symbols: string[]) => Promise<Record<string, number[]>>
       openChartWindow: (symbol: string) => Promise<void>
       clearCache: () => Promise<void>
+      // AI
+      aiMarketCommentary: (summary: any) => Promise<string>
+      onAIStreamChunk: (cb: (data: { requestId: string; text: string }) => void) => void
+      onAIStreamDone: (cb: (data: { requestId: string }) => void) => void
+      onAIStreamError: (cb: (data: { requestId: string; error: string }) => void) => void
+      removeAIStreamListeners: () => void
     }
   }
 }

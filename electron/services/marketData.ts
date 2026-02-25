@@ -1,4 +1,4 @@
-const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+export const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 
 interface QuoteResult {
   symbol: string
@@ -31,7 +31,7 @@ interface ChartPoint {
 const cache = new Map<string, { data: unknown; timestamp: number }>()
 const CACHE_TTL = 30 * 60 * 1000 // 30 minutes
 
-function getCached<T>(key: string, ttl = CACHE_TTL): T | null {
+export function getCached<T>(key: string, ttl = CACHE_TTL): T | null {
   const entry = cache.get(key)
   if (entry && Date.now() - entry.timestamp < ttl) {
     return entry.data as T
@@ -44,11 +44,11 @@ export function clearCache() {
   cache.clear()
 }
 
-function setCache(key: string, data: unknown) {
+export function setCache(key: string, data: unknown) {
   cache.set(key, { data, timestamp: Date.now() })
 }
 
-function sleep(ms: number) {
+export function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
@@ -58,9 +58,12 @@ let _cookie = ''
 let _crumbExpiry = 0
 const CRUMB_TTL = 30 * 60 * 1000 // 30 minutes
 
+export function getCrumb() { return _crumb }
+export function getCookie() { return _cookie }
+
 let _crumbLock: Promise<boolean> | null = null
 
-async function ensureCrumb(): Promise<boolean> {
+export async function ensureCrumb(): Promise<boolean> {
   if (_crumb && _cookie && Date.now() < _crumbExpiry) return true
 
   // Prevent multiple concurrent crumb requests
