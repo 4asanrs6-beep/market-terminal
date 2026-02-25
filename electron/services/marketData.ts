@@ -29,7 +29,7 @@ interface ChartPoint {
 
 // Simple TTL cache
 const cache = new Map<string, { data: unknown; timestamp: number }>()
-const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+const CACHE_TTL = 30 * 60 * 1000 // 30 minutes
 
 function getCached<T>(key: string, ttl = CACHE_TTL): T | null {
   const entry = cache.get(key)
@@ -38,6 +38,10 @@ function getCached<T>(key: string, ttl = CACHE_TTL): T | null {
   }
   cache.delete(key)
   return null
+}
+
+export function clearCache() {
+  cache.clear()
 }
 
 function setCache(key: string, data: unknown) {

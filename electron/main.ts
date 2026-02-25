@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
 import path from 'path'
 import fs from 'fs'
-import { getStockQuotes, getChartData, get5DayChanges, getQuoteSummary, getFinancials, getSparklines } from './services/marketData'
+import { getStockQuotes, getChartData, get5DayChanges, getQuoteSummary, getFinancials, getSparklines, clearCache } from './services/marketData'
 import { getConstituents, getSectorsForSymbols, MarketIndex } from './services/constituents'
 
 const DIST = path.join(__dirname, '../dist')
@@ -226,6 +226,10 @@ ipcMain.handle('get-sparklines', async (_event, symbols: string[]) => {
 
 ipcMain.handle('open-chart-window', async (_event, symbol: string) => {
   openChartWindow(symbol)
+})
+
+ipcMain.handle('clear-cache', async () => {
+  clearCache()
 })
 
 app.on('window-all-closed', () => {

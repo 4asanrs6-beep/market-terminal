@@ -88,6 +88,7 @@ export function useMarketData(market: MarketIndex, watchlists: WatchlistInfo[]) 
   }, [market, watchlists, fetchQuotes])
 
   const refresh = useCallback(async () => {
+    await window.electronAPI.clearCache()
     const wlId = getWatchlistId(market)
     let symbols: string[]
     if (wlId) {

@@ -45,4 +45,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   openChartWindow: (symbol: string) =>
     ipcRenderer.invoke('open-chart-window', symbol),
+
+  clearCache: () =>
+    ipcRenderer.invoke('clear-cache'),
 })

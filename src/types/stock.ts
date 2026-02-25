@@ -110,6 +110,7 @@ declare global {
       getFinancials: (symbol: string) => Promise<FinancialsData | null>
       getSparklines: (symbols: string[]) => Promise<Record<string, number[]>>
       openChartWindow: (symbol: string) => Promise<void>
+      clearCache: () => Promise<void>
     }
   }
 }
