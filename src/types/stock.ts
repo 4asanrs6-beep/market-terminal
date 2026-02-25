@@ -14,6 +14,7 @@ export interface StockQuote {
   fiftyTwoWeekLow: number
   marketCap: number
   fiveDayChangePercent?: number
+  earningsDate?: string  // YYYY-MM-DD format
 }
 
 export interface ChartPoint {
@@ -85,7 +86,7 @@ export interface FinancialsData {
   quarterly: IncomeStatement[]
 }
 
-export type SortField = 'symbol' | 'shortName' | 'regularMarketPrice' | 'regularMarketPreviousClose' | 'regularMarketChange' | 'regularMarketChangePercent' | 'regularMarketVolume' | 'fiveDayChangePercent' | 'marketCap'
+export type SortField = 'symbol' | 'shortName' | 'regularMarketPrice' | 'regularMarketPreviousClose' | 'regularMarketChange' | 'regularMarketChangePercent' | 'regularMarketVolume' | 'fiveDayChangePercent' | 'marketCap' | 'earningsDate'
 export type SortDirection = 'asc' | 'desc'
 
 export type ChartPeriod = '1d' | '1w' | '1mo' | '3mo' | '6mo' | '1y' | '5y'

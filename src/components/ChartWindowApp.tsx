@@ -230,8 +230,8 @@ export function ChartWindowApp() {
         <>
           <div className={styles.chartsGrid}>
             <StockChart symbol={symbol} label="5分足 (NY時間)" period="1d" interval="5m" />
-            <StockChart symbol={symbol} label="日足" period="2y" interval="1d" maPeriods={[25, 75, 200]} />
-            <StockChart symbol={symbol} label="週足" period="5y" interval="1wk" />
+            <StockChart symbol={symbol} label="日足" period="6mo" interval="1d" maPeriods={[25, 75, 200]} />
+            <StockChart symbol={symbol} label="週足" period="2y" interval="1wk" />
           </div>
 
           <div className={styles.fundamentals}>
@@ -239,85 +239,155 @@ export function ChartWindowApp() {
               <span className={styles.fundLoading}>指標取得中...</span>
             ) : summary ? (
               <>
-                <div className={styles.fundHeader}>
-                  <span className={styles.fundName}>
-                    {summary.longName || summary.shortName}
-                  </span>
-                  {summary.sector && (
-                    <span className={styles.fundSector}>
-                      {summary.sector}{summary.industry ? ` / ${summary.industry}` : ''}
+                {/* Header: Company + Market Cap */}
+                <div className={styles.fundHeaderBar}>
+                  <div className={styles.fundHeaderLeft}>
+                    <span className={styles.fundName}>
+                      {summary.longName || summary.shortName}
                     </span>
-                  )}
-                </div>
-                <div className={styles.fundGrid}>
-                  <div className={styles.fundItem}>
-                    <span className={styles.fundLabel}>実績PER</span>
-                    <span className={styles.fundValue}>{fmt(summary.trailingPE)}</span>
+                    {summary.sector && (
+                      <span className={styles.fundSectorTag}>
+                        {summary.sector}{summary.industry ? ` / ${summary.industry}` : ''}
+                      </span>
+                    )}
+                    {summary.country && (
+                      <span className={styles.fundMeta}>
+                        {summary.city ? `${summary.city}, ` : ''}{summary.country}
+                        {summary.fullTimeEmployees != null && ` | ${summary.fullTimeEmployees.toLocaleString()}名`}
+                      </span>
+                    )}
                   </div>
-                  <div className={styles.fundItem}>
-                    <span className={styles.fundLabel}>予想PER</span>
-                    <span className={styles.fundValue}>{fmt(summary.forwardPE)}</span>
-                  </div>
-                  <div className={styles.fundItem}>
-                    <span className={styles.fundLabel}>PBR</span>
-                    <span className={styles.fundValue}>{fmt(summary.priceToBook)}</span>
-                  </div>
-                  <div className={styles.fundItem}>
-                    <span className={styles.fundLabel}>実績EPS</span>
-                    <span className={styles.fundValue}>{fmt(summary.epsTrailingTwelveMonths)}</span>
-                  </div>
-                  <div className={styles.fundItem}>
-                    <span className={styles.fundLabel}>予想EPS</span>
-                    <span className={styles.fundValue}>{fmt(summary.epsForward)}</span>
-                  </div>
-                  <div className={styles.fundItem}>
-                    <span className={styles.fundLabel}>配当利回り</span>
-                    <span className={styles.fundValue}>{fmtPct(summary.dividendYield)}</span>
-                  </div>
-                  <div className={styles.fundItem}>
-                    <span className={styles.fundLabel}>年間配当</span>
-                    <span className={styles.fundValue}>{fmt(summary.trailingAnnualDividendRate)}</span>
-                  </div>
-                  <div className={styles.fundItem}>
-                    <span className={styles.fundLabel}>時価総額</span>
-                    <span className={styles.fundValue}>{fmtCap(summary.marketCap)}</span>
-                  </div>
-                  <div className={styles.fundItem}>
-                    <span className={styles.fundLabel}>52W高値</span>
-                    <span className={styles.fundValue}>{fmt(summary.fiftyTwoWeekHigh)}</span>
-                  </div>
-                  <div className={styles.fundItem}>
-                    <span className={styles.fundLabel}>52W安値</span>
-                    <span className={styles.fundValue}>{fmt(summary.fiftyTwoWeekLow)}</span>
-                  </div>
-                  <div className={styles.fundItem}>
-                    <span className={styles.fundLabel}>利益率</span>
-                    <span className={styles.fundValue}>{fmtPct(summary.profitMargins)}</span>
-                  </div>
-                  <div className={styles.fundItem}>
-                    <span className={styles.fundLabel}>ROE</span>
-                    <span className={styles.fundValue}>{fmtPct(summary.returnOnEquity)}</span>
-                  </div>
-                  <div className={styles.fundItem}>
-                    <span className={styles.fundLabel}>D/E比率</span>
-                    <span className={styles.fundValue}>{fmt(summary.debtToEquity)}</span>
-                  </div>
-                  <div className={styles.fundItem}>
-                    <span className={styles.fundLabel}>Beta</span>
-                    <span className={styles.fundValue}>{fmt(summary.beta)}</span>
+                  <div className={styles.fundHeaderRight}>
+                    <div className={styles.fundCapBlock}>
+                      <span className={styles.fundCapLabel}>時価総額</span>
+                      <span className={styles.fundCapValue}>{fmtCap(summary.marketCap)}</span>
+                    </div>
+                    {summary.enterpriseValue != null && (
+                      <div className={styles.fundCapBlock}>
+                        <span className={styles.fundCapLabel}>企業価値</span>
+                        <span className={styles.fundCapValueSm}>{fmtCap(summary.enterpriseValue)}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
+
+                {/* Categorized stats grid */}
+                <div className={styles.fundSections}>
+                  {/* Valuation */}
+                  <div className={styles.fundSection}>
+                    <div className={styles.fundSectionTitle}>バリュエーション</div>
+                    <table className={styles.fundTable}>
+                      <tbody>
+                        <tr>
+                          <td className={styles.ftLabel}>PER (実績)</td>
+                          <td className={styles.ftValue}>{fmt(summary.trailingPE)}</td>
+                        </tr>
+                        <tr>
+                          <td className={styles.ftLabel}>PER (予想)</td>
+                          <td className={styles.ftValue}>{fmt(summary.forwardPE)}</td>
+                        </tr>
+                        <tr>
+                          <td className={styles.ftLabel}>PBR</td>
+                          <td className={styles.ftValue}>{fmt(summary.priceToBook)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Earnings */}
+                  <div className={styles.fundSection}>
+                    <div className={styles.fundSectionTitle}>収益</div>
+                    <table className={styles.fundTable}>
+                      <tbody>
+                        <tr>
+                          <td className={styles.ftLabel}>EPS (実績)</td>
+                          <td className={styles.ftValue}>{fmt(summary.epsTrailingTwelveMonths)}</td>
+                        </tr>
+                        <tr>
+                          <td className={styles.ftLabel}>EPS (予想)</td>
+                          <td className={styles.ftValue}>{fmt(summary.epsForward)}</td>
+                        </tr>
+                        <tr>
+                          <td className={styles.ftLabel}>売上/株</td>
+                          <td className={styles.ftValue}>{fmt(summary.revenuePerShare)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Profitability */}
+                  <div className={styles.fundSection}>
+                    <div className={styles.fundSectionTitle}>収益性</div>
+                    <table className={styles.fundTable}>
+                      <tbody>
+                        <tr>
+                          <td className={styles.ftLabel}>利益率</td>
+                          <td className={styles.ftValue}>{fmtPct(summary.profitMargins)}</td>
+                        </tr>
+                        <tr>
+                          <td className={styles.ftLabel}>ROE</td>
+                          <td className={styles.ftValue}>{fmtPct(summary.returnOnEquity)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Dividends */}
+                  <div className={styles.fundSection}>
+                    <div className={styles.fundSectionTitle}>配当</div>
+                    <table className={styles.fundTable}>
+                      <tbody>
+                        <tr>
+                          <td className={styles.ftLabel}>配当利回り</td>
+                          <td className={styles.ftValue}>{fmtPct(summary.dividendYield)}</td>
+                        </tr>
+                        <tr>
+                          <td className={styles.ftLabel}>年間配当</td>
+                          <td className={styles.ftValue}>{fmt(summary.trailingAnnualDividendRate)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Range & Risk */}
+                  <div className={styles.fundSection}>
+                    <div className={styles.fundSectionTitle}>レンジ</div>
+                    <table className={styles.fundTable}>
+                      <tbody>
+                        <tr>
+                          <td className={styles.ftLabel}>52W 高値</td>
+                          <td className={styles.ftValue}>{fmt(summary.fiftyTwoWeekHigh)}</td>
+                        </tr>
+                        <tr>
+                          <td className={styles.ftLabel}>52W 安値</td>
+                          <td className={styles.ftValue}>{fmt(summary.fiftyTwoWeekLow)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Risk */}
+                  <div className={styles.fundSection}>
+                    <div className={styles.fundSectionTitle}>リスク</div>
+                    <table className={styles.fundTable}>
+                      <tbody>
+                        <tr>
+                          <td className={styles.ftLabel}>Beta</td>
+                          <td className={styles.ftValue}>{fmt(summary.beta)}</td>
+                        </tr>
+                        <tr>
+                          <td className={styles.ftLabel}>D/E 比率</td>
+                          <td className={styles.ftValue}>{fmt(summary.debtToEquity)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Business description */}
                 {summary.longBusinessSummary && (
                   <div className={styles.fundProfile}>
-                    <div className={styles.fundProfileHeader}>
-                      <span>企業情報</span>
-                      {summary.country && (
-                        <span className={styles.fundProfileMeta}>
-                          {summary.city ? `${summary.city}, ` : ''}{summary.country}
-                          {summary.fullTimeEmployees != null && ` | 従業員数: ${summary.fullTimeEmployees.toLocaleString()}名`}
-                        </span>
-                      )}
-                    </div>
+                    <div className={styles.fundProfileHeader}>企業概要</div>
                     <p className={styles.fundProfileText}>
                       {summary.longBusinessSummary}
                     </p>

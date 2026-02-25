@@ -15,6 +15,7 @@ interface QuoteResult {
   fiftyTwoWeekHigh: number
   fiftyTwoWeekLow: number
   marketCap: number
+  earningsDate?: string  // YYYY-MM-DD format
 }
 
 interface ChartPoint {
@@ -157,6 +158,14 @@ export async function getStockQuotes(symbols: string[]): Promise<QuoteResult[]> 
     try {
       const quotes = await fetchQuotesV7(batch)
       for (const q of quotes) {
+        // Extract earnings date from earningsTimestamp or earningsTimestampStart
+        let earningsDate: string | undefined
+        const earningsTs = q.earningsTimestamp ?? q.earningsTimestampStart
+        if (earningsTs) {
+          const d = new Date(earningsTs * 1000)
+          earningsDate = d.toISOString().split('T')[0]
+        }
+
         results.push({
           symbol: q.symbol ?? '',
           shortName: q.shortName || q.longName || q.symbol || '',
@@ -172,6 +181,7 @@ export async function getStockQuotes(symbols: string[]): Promise<QuoteResult[]> 
           fiftyTwoWeekHigh: q.fiftyTwoWeekHigh ?? 0,
           fiftyTwoWeekLow: q.fiftyTwoWeekLow ?? 0,
           marketCap: q.marketCap ?? 0,
+          earningsDate,
         })
       }
       if (quotes.length === 0) {

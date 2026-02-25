@@ -72,6 +72,20 @@ interface ColumnDef {
   minWidth: number
 }
 
+function daysUntil(dateStr: string): number {
+  const now = new Date()
+  now.setHours(0, 0, 0, 0)
+  const target = new Date(dateStr + 'T00:00:00')
+  return Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+}
+
+function formatEarningsDate(dateStr: string | undefined): string {
+  if (!dateStr) return '-'
+  const parts = dateStr.split('-')
+  if (parts.length === 3) return `${parts[1]}/${parts[2]}`
+  return dateStr
+}
+
 const COLUMNS: ColumnDef[] = [
   { key: 'symbol', label: 'ティッカー', defaultWidth: 80, minWidth: 60 },
   { key: 'shortName', label: '銘柄名', defaultWidth: 160, minWidth: 80 },
@@ -82,6 +96,7 @@ const COLUMNS: ColumnDef[] = [
   { key: 'fiveDayChangePercent', label: '5日騰落率 (%)', defaultWidth: 100, minWidth: 60 },
   { key: 'regularMarketVolume', label: '出来高 (株)', defaultWidth: 90, minWidth: 60 },
   { key: 'marketCap', label: '時価総額 (億$)', defaultWidth: 110, minWidth: 60 },
+  { key: 'earningsDate', label: '次回決算', defaultWidth: 110, minWidth: 80 },
   { key: 'sector', label: 'セクター', defaultWidth: 100, minWidth: 60 },
 ]
 
@@ -212,6 +227,15 @@ export function StockTable({
     data.sort((a, b) => {
       const aVal = a[sortField as keyof StockQuote]
       const bVal = b[sortField as keyof StockQuote]
+      // Handle earningsDate: undefined/null → sort to end
+      if (sortField === 'earningsDate') {
+        const aStr = (aVal as string | undefined) || ''
+        const bStr = (bVal as string | undefined) || ''
+        if (!aStr && !bStr) return 0
+        if (!aStr) return 1
+        if (!bStr) return -1
+        return sortDir === 'asc' ? aStr.localeCompare(bStr) : bStr.localeCompare(aStr)
+      }
       const aNum = typeof aVal === 'number' ? aVal : (aVal == null ? -Infinity : 0)
       const bNum = typeof bVal === 'number' ? bVal : (bVal == null ? -Infinity : 0)
       if (typeof aVal === 'string' && typeof bVal === 'string') {
@@ -366,6 +390,22 @@ export function StockTable({
                   </td>
                   <td className={styles.volume}>{formatVolume(stock.regularMarketVolume)}</td>
                   <td className={styles.volume}>{formatMarketCap(stock.marketCap)}</td>
+                  <td className={
+                    stock.earningsDate
+                      ? daysUntil(stock.earningsDate) <= 7 && daysUntil(stock.earningsDate) >= 0
+                        ? styles.earningsSoon
+                        : daysUntil(stock.earningsDate) < 0
+                          ? styles.earningsPast
+                          : styles.earningsNormal
+                      : styles.volume
+                  }>
+                    {formatEarningsDate(stock.earningsDate)}
+                    {stock.earningsDate && daysUntil(stock.earningsDate) >= 0 && daysUntil(stock.earningsDate) <= 7 && (
+                      <span className={styles.earningsBadge}>
+                        {daysUntil(stock.earningsDate) === 0 ? '今日' : `${daysUntil(stock.earningsDate)}日後`}
+                      </span>
+                    )}
+                  </td>
                   <td className={styles.sectorCell}>{sectorJa(stock.sector)}</td>
                 </tr>
               )
