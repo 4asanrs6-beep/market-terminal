@@ -89,9 +89,8 @@
 }
 
 .table {
-  width: 100%;
   border-collapse: collapse;
-  table-layout: fixed;
+  min-width: 100%;
 }
 
 .table thead {
@@ -114,16 +113,17 @@
   user-select: none;
   white-space: nowrap;
   transition: color 0.15s;
+  position: relative;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .table th:first-child {
   text-align: left;
-  width: 80px;
 }
 
 .table th:nth-child(2) {
   text-align: left;
-  width: 180px;
 }
 
 .table th:hover {
@@ -134,9 +134,34 @@
   color: var(--accent-orange);
 }
 
+.table th.noSort {
+  cursor: default;
+}
+
+.table th.noSort:hover {
+  color: var(--text-secondary);
+}
+
 .sortArrow {
   margin-left: 4px;
   font-size: 8px;
+}
+
+/* Column resize handle */
+.resizeHandle {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+  cursor: col-resize;
+  z-index: 1;
+}
+
+.resizeHandle:hover,
+.resizeHandle:active {
+  background: var(--accent-orange);
+  opacity: 0.5;
 }
 
 .table td {
@@ -146,6 +171,8 @@
   font-size: 12px;
   text-align: right;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .table td:first-child {
@@ -173,6 +200,26 @@
 
 .row.selected {
   background: var(--bg-active);
+}
+
+/* Watchlisted row highlight */
+.row.watchlisted {
+  background: rgba(255, 140, 0, 0.06);
+  border-left: 2px solid var(--accent-orange);
+}
+
+.row.watchlisted:hover {
+  background: rgba(255, 140, 0, 0.12);
+}
+
+.row.watchlisted.selected {
+  background: rgba(255, 140, 0, 0.18);
+}
+
+.starIcon {
+  color: var(--accent-orange);
+  margin-right: 4px;
+  font-size: 10px;
 }
 
 .positive {
@@ -208,3 +255,74 @@
 
 .loadingDot:nth-child(2) { animation-delay: 0.3s; }
 .loadingDot:nth-child(3) { animation-delay: 0.6s; }
+
+/* Context menu */
+.contextMenu {
+  position: fixed;
+  z-index: 1000;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-light);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  min-width: 180px;
+  padding: 4px 0;
+}
+
+.contextMenuItem {
+  display: block;
+  width: 100%;
+  padding: 8px 14px;
+  text-align: left;
+  color: var(--text-primary);
+  font-size: 12px;
+  cursor: pointer;
+  border: none;
+  background: none;
+  transition: background 0.1s;
+}
+
+.contextMenuItem:hover {
+  background: var(--bg-hover);
+  color: var(--accent-orange);
+}
+
+/* View mode toggle */
+.viewToggle {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.viewBtn {
+  padding: 3px 10px;
+  background: var(--bg-tertiary);
+  border: none;
+  border-right: 1px solid var(--border-color);
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.viewBtn:last-child {
+  border-right: none;
+}
+
+.viewBtn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.viewBtn.viewBtnActive {
+  background: var(--accent-orange);
+  color: #000;
+}
+
+/* Sparkline cell */
+.sparklineCell {
+  padding: 2px 4px !important;
+  text-align: center !important;
+}

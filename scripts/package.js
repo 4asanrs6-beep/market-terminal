@@ -28,7 +28,19 @@ console.log('Packaging Market Terminal...')
 
 // 1. Clean output
 if (fs.existsSync(OUT)) {
-  fs.rmSync(OUT, { recursive: true })
+  try {
+    fs.rmSync(OUT, { recursive: true })
+  } catch (e) {
+    // If locked, try renaming old folder out of the way
+    const bakPath = OUT + '_old_' + Date.now()
+    try {
+      fs.renameSync(OUT, bakPath)
+      console.log(`  Old release folder locked, renamed to ${path.basename(bakPath)}`)
+    } catch {
+      console.error('Cannot remove or rename old release folder. Close any open Explorer windows or running Market Terminal.exe, then retry.')
+      process.exit(1)
+    }
+  }
 }
 fs.mkdirSync(OUT, { recursive: true })
 

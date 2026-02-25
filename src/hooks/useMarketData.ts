@@ -1,14 +1,27 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import type { StockQuote, ConstituentInfo, MarketIndex, ChartPoint } from '../types/stock'
+import type { StockQuote, ConstituentInfo, MarketIndex, ChartPoint, WatchlistInfo, WatchlistsData } from '../types/stock'
 
-const REFRESH_INTERVAL = 30_000 // 30 seconds
+// Helper: extract watchlist ID from market string like 'watchlist:wl_1'
+function getWatchlistId(market: MarketIndex): string | null {
+  if (market.startsWith('watchlist:')) return market.slice('watchlist:'.length)
+  return null
+}
 
-export function useMarketData(market: MarketIndex) {
+export function useMarketData(market: MarketIndex, watchlists: WatchlistInfo[]) {
   const [constituents, setConstituents] = useState<ConstituentInfo[]>([])
   const [quotes, setQuotes] = useState<StockQuote[]>([])
   const [loading, setLoading] = useState(true)
-  const [watchlist, setWatchlist] = useState<string[]>([])
-  const intervalRef = useRef<ReturnType<typeof setInterval>>()
+  const [sparklines, setSparklines] = useState<Record<string, number[]>>({})
+  const fetchingRef = useRef(false)
+
+  // All watchlisted symbols across all lists (for highlighting in table)
+  const allWatchlistSymbols = useCallback(() => {
+    const set = new Set<string>()
+    for (const wl of watchlists) {
+      for (const s of wl.symbols) set.add(s)
+    }
+    return Array.from(set)
+  }, [watchlists])
 
   const fetchQuotes = useCallback(async (symbols: string[]) => {
     if (symbols.length === 0) {
@@ -16,35 +29,52 @@ export function useMarketData(market: MarketIndex) {
       setLoading(false)
       return
     }
+    if (fetchingRef.current) return
+    fetchingRef.current = true
     try {
-      // Show quotes immediately
       const data = await window.electronAPI.getStockQuotes(symbols)
       setQuotes(data)
       setLoading(false)
 
-      // Fill in 5-day changes asynchronously
-      window.electronAPI.get5DayChanges(symbols).then(fiveDayMap => {
+      const sectorMap = await window.electronAPI.getSectors(symbols)
+      setQuotes(prev => prev.map(q => ({
+        ...q,
+        sector: sectorMap[q.symbol] || q.sector || '',
+      })))
+
+      try {
+        const fiveDayMap = await window.electronAPI.get5DayChanges(symbols)
         setQuotes(prev => prev.map(q => ({
           ...q,
           fiveDayChangePercent: fiveDayMap[q.symbol] ?? undefined,
         })))
-      }).catch(err => {
+      } catch (err) {
         console.error('Failed to fetch 5-day changes:', err)
-      })
+      }
+
+      try {
+        const sparkData = await window.electronAPI.getSparklines(symbols)
+        setSparklines(sparkData)
+      } catch (err) {
+        console.error('Failed to fetch sparklines:', err)
+      }
     } catch (err) {
       console.error('Failed to fetch quotes:', err)
       setLoading(false)
+    } finally {
+      fetchingRef.current = false
     }
   }, [])
 
   const loadMarketData = useCallback(async () => {
     setLoading(true)
     try {
-      if (market === 'watchlist') {
-        const wl = await window.electronAPI.getWatchlist()
-        setWatchlist(wl)
-        setConstituents(wl.map(s => ({ symbol: s, name: s, sector: '' })))
-        await fetchQuotes(wl)
+      const wlId = getWatchlistId(market)
+      if (wlId) {
+        const wl = watchlists.find(l => l.id === wlId)
+        const symbols = wl ? wl.symbols : []
+        setConstituents(symbols.map(s => ({ symbol: s, name: s, sector: '' })))
+        await fetchQuotes(symbols)
       } else {
         const list = await window.electronAPI.getConstituents(market)
         setConstituents(list)
@@ -55,53 +85,74 @@ export function useMarketData(market: MarketIndex) {
       console.error('Failed to load market data:', err)
       setLoading(false)
     }
-  }, [market, fetchQuotes])
+  }, [market, watchlists, fetchQuotes])
 
   const refresh = useCallback(async () => {
-    const symbols = market === 'watchlist'
-      ? watchlist
-      : constituents.map(c => c.symbol)
+    const wlId = getWatchlistId(market)
+    let symbols: string[]
+    if (wlId) {
+      const wl = watchlists.find(l => l.id === wlId)
+      symbols = wl ? wl.symbols : []
+    } else {
+      symbols = constituents.map(c => c.symbol)
+    }
     if (symbols.length > 0) {
       await fetchQuotes(symbols)
     }
-  }, [market, watchlist, constituents, fetchQuotes])
+  }, [market, watchlists, constituents, fetchQuotes])
 
   useEffect(() => {
     loadMarketData()
   }, [loadMarketData])
-
-  // Auto-refresh
-  useEffect(() => {
-    intervalRef.current = setInterval(refresh, REFRESH_INTERVAL)
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current)
-    }
-  }, [refresh])
-
-  const addToWatchlist = useCallback(async (ticker: string) => {
-    const updated = await window.electronAPI.addToWatchlist(ticker)
-    setWatchlist(updated)
-    if (market === 'watchlist') {
-      setConstituents(updated.map(s => ({ symbol: s, name: s, sector: '' })))
-      await fetchQuotes(updated)
-    }
-  }, [market, fetchQuotes])
-
-  const removeFromWatchlist = useCallback(async (ticker: string) => {
-    const updated = await window.electronAPI.removeFromWatchlist(ticker)
-    setWatchlist(updated)
-    if (market === 'watchlist') {
-      setConstituents(updated.map(s => ({ symbol: s, name: s, sector: '' })))
-      await fetchQuotes(updated)
-    }
-  }, [market, fetchQuotes])
 
   return {
     constituents,
     quotes,
     loading,
     refresh,
-    watchlist,
+    allWatchlistSymbols,
+    sparklines,
+  }
+}
+
+export function useWatchlists() {
+  const [watchlistsData, setWatchlistsData] = useState<WatchlistsData>({ lists: [] })
+
+  useEffect(() => {
+    window.electronAPI.getWatchlists().then(setWatchlistsData)
+  }, [])
+
+  const createWatchlist = useCallback(async (name: string) => {
+    const data = await window.electronAPI.createWatchlist(name)
+    setWatchlistsData(data)
+    return data
+  }, [])
+
+  const renameWatchlist = useCallback(async (id: string, name: string) => {
+    const data = await window.electronAPI.renameWatchlist(id, name)
+    setWatchlistsData(data)
+  }, [])
+
+  const deleteWatchlist = useCallback(async (id: string) => {
+    const data = await window.electronAPI.deleteWatchlist(id)
+    setWatchlistsData(data)
+  }, [])
+
+  const addToWatchlist = useCallback(async (listId: string, ticker: string) => {
+    const data = await window.electronAPI.addToWatchlist(listId, ticker)
+    setWatchlistsData(data)
+  }, [])
+
+  const removeFromWatchlist = useCallback(async (listId: string, ticker: string) => {
+    const data = await window.electronAPI.removeFromWatchlist(listId, ticker)
+    setWatchlistsData(data)
+  }, [])
+
+  return {
+    watchlists: watchlistsData.lists,
+    createWatchlist,
+    renameWatchlist,
+    deleteWatchlist,
     addToWatchlist,
     removeFromWatchlist,
   }

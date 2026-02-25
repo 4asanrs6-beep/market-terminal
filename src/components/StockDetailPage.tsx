@@ -43,8 +43,8 @@ export function StockDetailPage({ symbol, quote, onBack }: StockDetailPageProps)
       </div>
 
       <div className={styles.chartsGrid}>
-        <StockChart symbol={symbol} label="5分足" period="1d" interval="5m" />
-        <StockChart symbol={symbol} label="日足" period="6mo" interval="1d" />
+        <StockChart symbol={symbol} label="5分足 (NY時間)" period="1d" interval="5m" />
+        <StockChart symbol={symbol} label="日足" period="2y" interval="1d" maPeriods={[25, 75, 200]} />
         <StockChart symbol={symbol} label="週足" period="5y" interval="1wk" />
       </div>
     </div>

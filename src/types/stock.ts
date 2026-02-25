@@ -31,9 +31,61 @@ export interface ConstituentInfo {
   sector: string
 }
 
-export type MarketIndex = 'sp500' | 'nasdaq100' | 'watchlist'
+export type MarketIndex = 'sp500' | 'nasdaq100' | string  // 'watchlist:wl_1' etc.
 
-export type SortField = 'symbol' | 'shortName' | 'regularMarketPrice' | 'regularMarketPreviousClose' | 'regularMarketChange' | 'regularMarketChangePercent' | 'regularMarketVolume' | 'fiveDayChangePercent'
+export interface WatchlistInfo {
+  id: string
+  name: string
+  symbols: string[]
+}
+
+export interface WatchlistsData {
+  lists: WatchlistInfo[]
+}
+
+export interface QuoteSummary {
+  shortName: string
+  longName: string
+  sector: string
+  industry: string
+  trailingPE: number | null
+  forwardPE: number | null
+  priceToBook: number | null
+  epsTrailingTwelveMonths: number | null
+  epsForward: number | null
+  dividendYield: number | null
+  trailingAnnualDividendRate: number | null
+  fiftyTwoWeekHigh: number | null
+  fiftyTwoWeekLow: number | null
+  marketCap: number | null
+  enterpriseValue: number | null
+  revenuePerShare: number | null
+  profitMargins: number | null
+  returnOnEquity: number | null
+  debtToEquity: number | null
+  beta: number | null
+  longBusinessSummary: string | null
+  fullTimeEmployees: number | null
+  website: string | null
+  country: string | null
+  city: string | null
+}
+
+export interface IncomeStatement {
+  endDate: string
+  totalRevenue: number | null
+  operatingIncome: number | null
+  netIncome: number | null
+  grossProfit: number | null
+  ebit: number | null
+}
+
+export interface FinancialsData {
+  annual: IncomeStatement[]
+  quarterly: IncomeStatement[]
+}
+
+export type SortField = 'symbol' | 'shortName' | 'regularMarketPrice' | 'regularMarketPreviousClose' | 'regularMarketChange' | 'regularMarketChangePercent' | 'regularMarketVolume' | 'fiveDayChangePercent' | 'marketCap'
 export type SortDirection = 'asc' | 'desc'
 
 export type ChartPeriod = '1d' | '1w' | '1mo' | '3mo' | '6mo' | '1y' | '5y'
@@ -46,9 +98,17 @@ declare global {
       getStockQuotes: (symbols: string[]) => Promise<StockQuote[]>
       getChartData: (symbol: string, period: string, interval: string) => Promise<ChartPoint[]>
       get5DayChanges: (symbols: string[]) => Promise<Record<string, number>>
-      getWatchlist: () => Promise<string[]>
-      addToWatchlist: (ticker: string) => Promise<string[]>
-      removeFromWatchlist: (ticker: string) => Promise<string[]>
+      getSectors: (symbols: string[]) => Promise<Record<string, string>>
+      getWatchlists: () => Promise<WatchlistsData>
+      createWatchlist: (name: string) => Promise<WatchlistsData>
+      renameWatchlist: (id: string, name: string) => Promise<WatchlistsData>
+      deleteWatchlist: (id: string) => Promise<WatchlistsData>
+      addToWatchlist: (listId: string, ticker: string) => Promise<WatchlistsData>
+      removeFromWatchlist: (listId: string, ticker: string) => Promise<WatchlistsData>
+      getQuoteSummary: (symbol: string) => Promise<QuoteSummary | null>
+      getFinancials: (symbol: string) => Promise<FinancialsData | null>
+      getSparklines: (symbols: string[]) => Promise<Record<string, number[]>>
+      openChartWindow: (symbol: string) => Promise<void>
     }
   }
 }

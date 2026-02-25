@@ -42,3 +42,10 @@
 .negative {
   color: var(--negative);
 }
+
+.maLegend {
+  margin-left: 10px;
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0;
+}

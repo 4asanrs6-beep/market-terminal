@@ -1,9 +1,12 @@
 import { useState, useRef, useEffect } from 'react'
+import type { WatchlistInfo } from '../types/stock'
 
 interface AddTickerModalProps {
   isOpen: boolean
   onClose: () => void
-  onAdd: (ticker: string) => void
+  onAdd: (ticker: string, listId: string) => void
+  watchlists: WatchlistInfo[]
+  activeListId: string | null
 }
 
 const overlayStyle: React.CSSProperties = {
@@ -46,6 +49,20 @@ const inputStyle: React.CSSProperties = {
   fontFamily: 'var(--font-mono)',
   fontSize: '14px',
   textTransform: 'uppercase',
+  boxSizing: 'border-box',
+}
+
+const selectStyle: React.CSSProperties = {
+  width: '100%',
+  padding: '8px 12px',
+  background: 'var(--bg-tertiary)',
+  border: '1px solid var(--border-light)',
+  borderRadius: '4px',
+  color: 'var(--text-primary)',
+  fontSize: '12px',
+  fontFamily: 'inherit',
+  marginTop: '10px',
+  boxSizing: 'border-box',
 }
 
 const buttonRowStyle: React.CSSProperties = {
@@ -64,24 +81,33 @@ const btnBase: React.CSSProperties = {
   transition: 'all 0.15s',
 }
 
-export function AddTickerModal({ isOpen, onClose, onAdd }: AddTickerModalProps) {
+export function AddTickerModal({ isOpen, onClose, onAdd, watchlists, activeListId }: AddTickerModalProps) {
   const [ticker, setTicker] = useState('')
+  const [selectedListId, setSelectedListId] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (isOpen) {
       setTicker('')
+      // Default to active watchlist, or first available
+      if (activeListId) {
+        setSelectedListId(activeListId)
+      } else if (watchlists.length > 0) {
+        setSelectedListId(watchlists[0].id)
+      } else {
+        setSelectedListId('')
+      }
       setTimeout(() => inputRef.current?.focus(), 100)
     }
-  }, [isOpen])
+  }, [isOpen, activeListId, watchlists])
 
   if (!isOpen) return null
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     const trimmed = ticker.trim().toUpperCase()
-    if (trimmed) {
-      onAdd(trimmed)
+    if (trimmed && selectedListId) {
+      onAdd(trimmed, selectedListId)
       onClose()
     }
   }
@@ -89,7 +115,7 @@ export function AddTickerModal({ isOpen, onClose, onAdd }: AddTickerModalProps) 
   return (
     <div style={overlayStyle} onClick={onClose}>
       <div style={modalStyle} onClick={e => e.stopPropagation()}>
-        <div style={titleStyle}>ウォッチリストに追加</div>
+        <div style={titleStyle}>銘柄を追加</div>
         <form onSubmit={handleSubmit}>
           <input
             ref={inputRef}
@@ -99,6 +125,27 @@ export function AddTickerModal({ isOpen, onClose, onAdd }: AddTickerModalProps) 
             value={ticker}
             onChange={e => setTicker(e.target.value)}
           />
+          {watchlists.length > 0 ? (
+            <select
+              style={selectStyle}
+              value={selectedListId}
+              onChange={e => setSelectedListId(e.target.value)}
+            >
+              {watchlists.map(wl => (
+                <option key={wl.id} value={wl.id}>
+                  {wl.name} ({wl.symbols.length} 銘柄)
+                </option>
+              ))}
+            </select>
+          ) : (
+            <div style={{
+              fontSize: '11px',
+              color: 'var(--text-muted)',
+              marginTop: '10px',
+            }}>
+              ウォッチリストがありません。先にリストを作成してください。
+            </div>
+          )}
           <div style={{
             fontSize: '11px',
             color: 'var(--text-muted)',
@@ -127,7 +174,7 @@ export function AddTickerModal({ isOpen, onClose, onAdd }: AddTickerModalProps) 
                 border: '1px solid var(--accent-orange)',
                 color: '#000',
               }}
-              disabled={!ticker.trim()}
+              disabled={!ticker.trim() || !selectedListId}
             >
               追加
             </button>

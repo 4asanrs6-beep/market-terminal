@@ -1,29 +1,47 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import type { MarketIndex } from './types/stock'
-import { useMarketData } from './hooks/useMarketData'
+import { useMarketData, useWatchlists } from './hooks/useMarketData'
 import { Header } from './components/Header'
 import { MarketTabs } from './components/MarketTabs'
-import { StockTable } from './components/StockTable'
-import { StockDetailPage } from './components/StockDetailPage'
+import { StockTable, type ViewMode } from './components/StockTable'
+import { SectorHeatmap } from './components/SectorHeatmap'
 import { AddTickerModal } from './components/AddTickerModal'
 import styles from './styles/App.module.css'
 
 export default function App() {
   const [activeMarket, setActiveMarket] = useState<MarketIndex>('sp500')
-  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [showAddModal, setShowAddModal] = useState(false)
+  const [viewMode, setViewMode] = useState<ViewMode>('table')
 
-  const { quotes, loading, refresh, addToWatchlist } = useMarketData(activeMarket)
+  const {
+    watchlists,
+    createWatchlist,
+    renameWatchlist,
+    deleteWatchlist,
+    addToWatchlist,
+    removeFromWatchlist,
+  } = useWatchlists()
 
-  const selectedQuote = selectedSymbol
-    ? quotes.find(q => q.symbol === selectedSymbol) ?? null
-    : null
+  const { quotes, loading, refresh, allWatchlistSymbols, sparklines } = useMarketData(activeMarket, watchlists)
 
-  const handleAddTicker = async (ticker: string) => {
-    await addToWatchlist(ticker)
-    setActiveMarket('watchlist')
-  }
+  const handleSelectStock = useCallback((symbol: string) => {
+    window.electronAPI.openChartWindow(symbol)
+  }, [])
+
+  const handleAddTicker = useCallback(async (ticker: string, listId: string) => {
+    await addToWatchlist(listId, ticker)
+    // Switch to that watchlist so user can see the added ticker
+    setActiveMarket(`watchlist:${listId}`)
+  }, [addToWatchlist])
+
+  const handleDeleteWatchlist = useCallback((id: string) => {
+    deleteWatchlist(id)
+    // If the deleted list was active, switch to sp500
+    if (activeMarket === `watchlist:${id}`) {
+      setActiveMarket('sp500')
+    }
+  }, [activeMarket, deleteWatchlist])
 
   return (
     <div className={styles.app}>
@@ -36,34 +54,50 @@ export default function App() {
           activeMarket={activeMarket}
           onMarketChange={setActiveMarket}
           onAddTicker={() => setShowAddModal(true)}
+          watchlists={watchlists}
+          onCreateWatchlist={createWatchlist}
+          onRenameWatchlist={renameWatchlist}
+          onDeleteWatchlist={handleDeleteWatchlist}
         />
       </div>
 
       <div className={styles.main}>
-        {selectedSymbol ? (
-          <StockDetailPage
-            symbol={selectedSymbol}
-            quote={selectedQuote}
-            onBack={() => setSelectedSymbol(null)}
-          />
-        ) : (
-          <div className={styles.tableSection}>
+        <div className={styles.tableSection}>
+          {viewMode === 'heatmap' ? (
+            <SectorHeatmap
+              quotes={quotes}
+              loading={loading}
+              onSelectStock={handleSelectStock}
+              onRefresh={refresh}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+            />
+          ) : (
             <StockTable
               quotes={quotes}
               loading={loading}
               searchQuery={searchQuery}
-              selectedSymbol={selectedSymbol}
-              onSelectStock={setSelectedSymbol}
+              selectedSymbol={null}
+              onSelectStock={handleSelectStock}
               onRefresh={refresh}
+              watchlist={activeMarket.startsWith('watchlist:') ? allWatchlistSymbols() : []}
+              watchlists={watchlists}
+              onAddToWatchlist={addToWatchlist}
+              onRemoveFromWatchlist={removeFromWatchlist}
+              sparklines={sparklines}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
             />
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       <AddTickerModal
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
         onAdd={handleAddTicker}
+        watchlists={watchlists}
+        activeListId={activeMarket.startsWith('watchlist:') ? activeMarket.slice('watchlist:'.length) : null}
       />
     </div>
   )

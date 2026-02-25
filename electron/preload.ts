@@ -13,12 +13,36 @@ contextBridge.exposeInMainWorld('electronAPI', {
   get5DayChanges: (symbols: string[]) =>
     ipcRenderer.invoke('get-5day-changes', symbols),
 
-  getWatchlist: () =>
-    ipcRenderer.invoke('get-watchlist'),
+  getSectors: (symbols: string[]) =>
+    ipcRenderer.invoke('get-sectors', symbols),
 
-  addToWatchlist: (ticker: string) =>
-    ipcRenderer.invoke('add-to-watchlist', ticker),
+  getWatchlists: () =>
+    ipcRenderer.invoke('get-watchlists'),
 
-  removeFromWatchlist: (ticker: string) =>
-    ipcRenderer.invoke('remove-from-watchlist', ticker),
+  createWatchlist: (name: string) =>
+    ipcRenderer.invoke('create-watchlist', name),
+
+  renameWatchlist: (id: string, name: string) =>
+    ipcRenderer.invoke('rename-watchlist', id, name),
+
+  deleteWatchlist: (id: string) =>
+    ipcRenderer.invoke('delete-watchlist', id),
+
+  addToWatchlist: (listId: string, ticker: string) =>
+    ipcRenderer.invoke('add-to-watchlist', listId, ticker),
+
+  removeFromWatchlist: (listId: string, ticker: string) =>
+    ipcRenderer.invoke('remove-from-watchlist', listId, ticker),
+
+  getQuoteSummary: (symbol: string) =>
+    ipcRenderer.invoke('get-quote-summary', symbol),
+
+  getFinancials: (symbol: string) =>
+    ipcRenderer.invoke('get-financials', symbol),
+
+  getSparklines: (symbols: string[]) =>
+    ipcRenderer.invoke('get-sparklines', symbols),
+
+  openChartWindow: (symbol: string) =>
+    ipcRenderer.invoke('open-chart-window', symbol),
 })

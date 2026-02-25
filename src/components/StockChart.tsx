@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { createChart, IChartApi, ISeriesApi, ColorType } from 'lightweight-charts'
+import type { ChartPoint } from '../types/stock'
 import { useChartData } from '../hooks/useMarketData'
 import styles from '../styles/StockChart.module.css'
 
@@ -9,13 +10,44 @@ interface StockChartProps {
   period: string
   interval: string
   chartType?: 'candlestick' | 'line'
+  maPeriods?: number[]
 }
 
-export function StockChart({ symbol, label, period, interval, chartType = 'candlestick' }: StockChartProps) {
+// SMA (Simple Moving Average) calculation
+function calculateSMA(data: ChartPoint[], period: number): { time: any; value: number }[] {
+  const result: { time: any; value: number }[] = []
+  for (let i = period - 1; i < data.length; i++) {
+    let sum = 0
+    for (let j = 0; j < period; j++) {
+      sum += data[i - j].close
+    }
+    result.push({ time: data[i].time, value: sum / period })
+  }
+  return result
+}
+
+const MA_COLORS: Record<number, string> = {
+  25: '#FFD700',   // gold
+  75: '#00BFFF',   // sky blue
+  200: '#FF69B4',  // pink
+  13: '#FFD700',   // weekly equivalents
+  26: '#00BFFF',
+  52: '#FF69B4',
+}
+
+export function StockChart({
+  symbol,
+  label,
+  period,
+  interval,
+  chartType = 'candlestick',
+  maPeriods,
+}: StockChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | ISeriesApi<'Line'> | null>(null)
   const volumeSeriesRef = useRef<ISeriesApi<'Histogram'> | null>(null)
+  const maSeriesRefs = useRef<ISeriesApi<'Line'>[]>([])
 
   const { data, loading } = useChartData(symbol, period, interval)
 
@@ -73,6 +105,7 @@ export function StockChart({ symbol, label, period, interval, chartType = 'candl
       chartRef.current = null
       seriesRef.current = null
       volumeSeriesRef.current = null
+      maSeriesRefs.current = []
     }
   }, [isIntraday])
 
@@ -90,6 +123,10 @@ export function StockChart({ symbol, label, period, interval, chartType = 'candl
       chart.removeSeries(volumeSeriesRef.current)
       volumeSeriesRef.current = null
     }
+    for (const s of maSeriesRefs.current) {
+      chart.removeSeries(s)
+    }
+    maSeriesRefs.current = []
 
     // Volume histogram
     const volumeSeries = chart.addHistogramSeries({
@@ -142,12 +179,46 @@ export function StockChart({ symbol, label, period, interval, chartType = 'candl
       seriesRef.current = series
     }
 
+    // Moving averages
+    if (maPeriods && maPeriods.length > 0) {
+      for (const p of maPeriods) {
+        if (data.length < p) continue // not enough data
+        const maData = calculateSMA(data, p)
+        const color = MA_COLORS[p] || '#888'
+        const maSeries = chart.addLineSeries({
+          color,
+          lineWidth: 1,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          crosshairMarkerVisible: false,
+        })
+        maSeries.setData(maData)
+        maSeriesRefs.current.push(maSeries)
+      }
+    }
+
     chart.timeScale().fitContent()
-  }, [data, chartType])
+  }, [data, chartType, maPeriods])
+
+  // Build MA legend text
+  const maLegend = maPeriods && maPeriods.length > 0
+    ? maPeriods.map(p => {
+        const color = MA_COLORS[p] || '#888'
+        return `<span style="color:${color}">MA${p}</span>`
+      }).join(' ')
+    : ''
 
   return (
     <div className={styles.chartPanel}>
-      <div className={styles.chartLabel}>{label}</div>
+      <div className={styles.chartLabel}>
+        {label}
+        {maLegend && (
+          <span
+            className={styles.maLegend}
+            dangerouslySetInnerHTML={{ __html: maLegend }}
+          />
+        )}
+      </div>
       <div className={styles.chartArea} ref={chartContainerRef}>
         {loading && (
           <div className={styles.loading}>読込中...</div>

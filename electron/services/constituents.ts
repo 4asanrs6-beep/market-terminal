@@ -1,9 +1,119 @@
 export type MarketIndex = 'sp500' | 'nasdaq100'
 
-interface ConstituentInfo {
+export interface ConstituentInfo {
   symbol: string
   name: string
   sector: string
+}
+
+// GICS Sector mapping for S&P 500 & NASDAQ 100 constituents
+// Grouped by sector for maintainability
+const SECTOR_MAP: Record<string, string[]> = {
+  'Technology': [
+    'AAPL','ACN','ADBE','ADI','ADP','ADSK','AMAT','AMD','ANET','ANSS','APH',
+    'AVGO','CDNS','CDW','CPAY','CRM','CRWD','CSCO','CTSH','DELL','ENPH',
+    'EPAM','FFIV','FICO','FIS','FISV','FSLR','FTNT','GEN','GLW','GPN',
+    'GRMN','HPE','HPQ','IBM','INTC','INTU','IT','JKHY','KEYS','KLAC',
+    'LRCX','MCHP','MPWR','MRVL','MSFT','MSI','MU','NOW','NTAP','NVDA',
+    'NXPI','ON','ORCL','PANW','PLTR','PTC','PYPL','QCOM','QRVO','ROP',
+    'SMCI','SNPS','STX','SWKS','TDY','TEL','TER','TRMB','TXN','TYL',
+    'VRSN','WDC','ZBRA',
+    // NASDAQ-only
+    'APP','ARM','ASML','COIN','DDOG','GFS','MDB','MSTR','TEAM','TTD','ZS',
+  ],
+  'Health Care': [
+    'A','ABBV','ABT','ALGN','AMGN','BAX','BDX','BIIB','BIO','BMY','BSX',
+    'CAH','CNC','COO','COR','CRL','CTVA','CVS','DXCM','EW','GEHC','GILD',
+    'HCA','HOLX','HSIC','HUM','IDXX','ILMN','INCY','IQV','ISRG','JNJ',
+    'LH','LLY','MCK','MDT','MET','MOH','MRK','MRNA','MTD','PODD','PFE',
+    'REGN','RVTY','STE','SYK','TECH','TMO','UHS','UNH','VRTX','VTRS',
+    'WAT','WST','ZBH','ZTS',
+    // NASDAQ-only
+    'AZN','MELI',
+  ],
+  'Financials': [
+    'ACGL','AFL','AIG','AIZ','AJG','ALL','AMP','AON','APO','AXP','BAC',
+    'BEN','BK','BKR','BLK','BRK-B','BRO','BX','C','CB','CBOE','CFG',
+    'CINF','CMA','CME','COF','DFS','ERIE','FDS','FI','FICO','FITB',
+    'FRT','GL','GS','HBAN','ICE','INVH','IVZ','JPM','KEY','KIM','KKR',
+    'L','MA','MCO','MKTX','MMC','MS','MSCI','MTB','NDAQ','NTRS','PFG',
+    'PNC','PRU','PSA','REG','RF','RJF','SBAC','SCHW','SPGI','STT',
+    'SYF','TFC','TROW','TRV','USB','V','VICI','WFC','WRB','WTW',
+  ],
+  'Consumer Discretionary': [
+    'ABNB','AMZN','APTV','AZO','BBWI','BBY','BKNG','BWA','CCL','CHD',
+    'CMG','CZR','DAY','DG','DHI','DIS','DLTR','DPZ','DRI','EBAY','EXPE',
+    'F','GOOG','GOOGL','GPC','GM','GNRC','GWW','HAS','HD','LEN','LKQ',
+    'LOW','LULU','LVS','MAR','MCD','MGM','MHK','MTCH','NCLH','NKE',
+    'NVR','ORLY','PARA','PHM','POOL','PVH','RCL','RL','ROST','SBUX',
+    'TGT','TJX','TPR','TSCO','TSLA','TTWO','ULTA','VFC','WDAY','WYNN','YUM',
+    // NASDAQ-only
+    'DASH','PDD',
+  ],
+  'Communication Services': [
+    'CHTR','CMCSA','DIS','EA','FOX','FOXA','GOOG','GOOGL','IPG','LYV',
+    'META','MTCH','NFLX','NWS','NWSA','OMC','PARA','T','TMUS','TTWO',
+    'VZ','WBD',
+  ],
+  'Industrials': [
+    'AOS','AXON','BA','BLDR','CAT','CHRW','CMI','CPRT','CSX','CTAS',
+    'DAL','DE','DOV','EMR','ETN','FAST','FDX','FTV','GD','GE','GEV',
+    'GWW','HII','HON','HWM','IR','ITW','J','JBHT','JBL','JCI','LDOS',
+    'LHX','LMT','MAS','MLM','MMM','NDSN','NOC','NSC','ODFL','OTIS',
+    'PCAR','PH','PNR','PWR','ROK','ROL','RSG','RTX','SNA','SWK','SW',
+    'TDG','TT','TXT','UAL','UBER','UNP','UPS','URI','VRSK','WAB','WM',
+    'XYL',
+  ],
+  'Consumer Staples': [
+    'ADM','BF-B','BG','CAG','CHD','CL','CLX','COST','CPB','DG','EL',
+    'GIS','HRL','HSY','K','KDP','KHC','KMB','KO','KR','KVUE','LW',
+    'MDLZ','MKC','MNST','MO','PEP','PG','PM','SJM','STZ','SYY','TAP',
+    'TGT','TSN','WBA','WMT',
+  ],
+  'Energy': [
+    'APA','BKR','COP','CTRA','CVX','DVN','EOG','EQT','FANG','HAL',
+    'HES','KMI','LNG','MPC','MRO','OKE','OXY','PSX','SLB','TRGP',
+    'VLO','WMB','XOM',
+  ],
+  'Utilities': [
+    'AEE','AEP','AES','ATO','AWK','CEG','CMS','CNP','D','DTE','DUK',
+    'ED','EIX','ES','ETR','EVRG','EXC','FE','NEE','NI','NRG','PCG',
+    'PEG','PNW','PPL','SO','SRE','VST','WEC','XEL',
+  ],
+  'Real Estate': [
+    'AMT','ARE','AVB','BXP','CCI','CPT','CSGP','DLR','EQIX','EQR',
+    'ESS','EXR','FRT','HST','INVH','IRM','KIM','MAA','O','PLD','PSA',
+    'REG','SBAC','SPG','UDR','VICI','VTR','WELL','WY',
+  ],
+  'Materials': [
+    'AMCR','APD','AVY','BG','CE','CF','DD','DOW','ECL','EMN','FCX',
+    'FMC','IFF','IP','LIN','LYB','MLM','MOS','NEM','NUE','PKG','PPG',
+    'SEE','SHW','STLD','VMC','WRK',
+  ],
+}
+
+// Build reverse lookup: symbol -> sector
+const _symbolSectorMap: Record<string, string> = {}
+for (const [sector, symbols] of Object.entries(SECTOR_MAP)) {
+  for (const sym of symbols) {
+    // First assignment wins (some symbols appear in multiple sectors due to reclassification)
+    if (!_symbolSectorMap[sym]) {
+      _symbolSectorMap[sym] = sector
+    }
+  }
+}
+
+export function getSectorForSymbol(symbol: string): string {
+  return _symbolSectorMap[symbol] || ''
+}
+
+export function getSectorsForSymbols(symbols: string[]): Record<string, string> {
+  const result: Record<string, string> = {}
+  for (const sym of symbols) {
+    const sector = _symbolSectorMap[sym]
+    if (sector) result[sym] = sector
+  }
+  return result
 }
 
 // Full S&P 500 constituents (~503 tickers, as of early 2025)
@@ -103,7 +213,11 @@ const NASDAQ100_SYMBOLS: string[] = [
 ]
 
 function symbolsToConstituents(symbols: string[]): ConstituentInfo[] {
-  return symbols.map(symbol => ({ symbol, name: symbol, sector: '' }))
+  return symbols.map(symbol => ({
+    symbol,
+    name: symbol,
+    sector: _symbolSectorMap[symbol] || '',
+  }))
 }
 
 export function getConstituents(market: MarketIndex): ConstituentInfo[] {
