@@ -80,6 +80,28 @@ export function StockChart({
       timeScale: {
         borderColor: '#2a2a2a',
         timeVisible: isIntraday,
+        fixLeftEdge: true,
+        fixRightEdge: true,
+        tickMarkFormatter: (time: any, tickMarkType: number) => {
+          if (typeof time === 'number') {
+            // Intraday: UTC timestamp (already offset-adjusted)
+            const d = new Date(time * 1000)
+            const h = d.getUTCHours().toString().padStart(2, '0')
+            const m = d.getUTCMinutes().toString().padStart(2, '0')
+            return `${h}:${m}`
+          }
+          // Daily/Weekly: string "YYYY-MM-DD" or BusinessDay object
+          if (typeof time === 'string') {
+            const parts = time.split('-')
+            if (tickMarkType <= 1) return `${parts[0]}/${parts[1]}`  // Year/Month
+            return `${parseInt(parts[1])}/${parseInt(parts[2])}`      // Day
+          }
+          if (time.year != null) {
+            if (tickMarkType <= 1) return `${time.year}/${String(time.month).padStart(2, '0')}`
+            return `${time.month}/${time.day}`
+          }
+          return ''
+        },
       },
       handleScale: true,
       handleScroll: true,

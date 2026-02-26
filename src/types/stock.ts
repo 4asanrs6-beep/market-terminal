@@ -71,6 +71,7 @@ export interface QuoteSummary {
   website: string | null
   country: string | null
   city: string | null
+  exchangeTimezone: string | null
 }
 
 export interface IncomeStatement {

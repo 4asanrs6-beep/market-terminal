@@ -21,6 +21,30 @@ function fmtPct(v: number | null): string {
   return v.toFixed(2) + '%'
 }
 
+const TIMEZONE_LABELS: Record<string, string> = {
+  'America/New_York': 'NY時間',
+  'America/Chicago': 'シカゴ時間',
+  'America/Los_Angeles': 'LA時間',
+  'America/Toronto': 'トロント時間',
+  'Europe/London': 'ロンドン時間',
+  'Europe/Paris': 'パリ時間',
+  'Europe/Berlin': 'ベルリン時間',
+  'Europe/Zurich': 'チューリッヒ時間',
+  'Asia/Tokyo': '東京時間',
+  'Asia/Hong_Kong': '香港時間',
+  'Asia/Shanghai': '上海時間',
+  'Asia/Taipei': '台北時間',
+  'Asia/Seoul': 'ソウル時間',
+  'Asia/Singapore': 'シンガポール時間',
+  'Asia/Kolkata': 'インド時間',
+  'Australia/Sydney': 'シドニー時間',
+}
+
+function timezoneLabel(tz: string | null | undefined): string {
+  if (!tz) return '現地時間'
+  return TIMEZONE_LABELS[tz] || tz.split('/').pop()?.replace('_', ' ') + '時間' || '現地時間'
+}
+
 function fmtCap(v: number | null): string {
   if (v == null) return '-'
   if (v >= 1e12) return (v / 1e12).toFixed(2) + 'T'
@@ -229,7 +253,7 @@ export function ChartWindowApp() {
       {symbol ? (
         <>
           <div className={styles.chartsGrid}>
-            <StockChart symbol={symbol} label="5分足 (NY時間)" period="1d" interval="5m" />
+            <StockChart symbol={symbol} label={`5分足 (${timezoneLabel(summary?.exchangeTimezone)})`} period="1d" interval="5m" />
             <StockChart symbol={symbol} label="日足" period="6mo" interval="1d" maPeriods={[25, 75, 200]} />
             <StockChart symbol={symbol} label="週足" period="2y" interval="1wk" />
           </div>

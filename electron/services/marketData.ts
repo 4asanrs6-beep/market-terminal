@@ -450,6 +450,7 @@ export async function getQuoteSummary(symbol: string): Promise<QuoteSummary | nu
       website: summaryData._profile?.website || null,
       country: summaryData._profile?.country || null,
       city: summaryData._profile?.city || null,
+      exchangeTimezone: q.exchangeTimezoneName || null,
     }
 
     // Try to get Japanese description from Yahoo Finance Japan
