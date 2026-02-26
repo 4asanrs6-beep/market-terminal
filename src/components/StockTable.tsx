@@ -147,6 +147,12 @@ export function StockTable({
 
   const resizingRef = useRef<{ colIndex: number; startX: number; startWidth: number } | null>(null)
 
+  // Reset sector filter when market/quotes change (different symbol set)
+  const quotesKey = useMemo(() => quotes.map(q => q.symbol).sort().join(','), [quotes])
+  useEffect(() => {
+    setActiveSector('all')
+  }, [quotesKey])
+
   const watchlistSet = useMemo(() => new Set(watchlist), [watchlist])
 
   // Close context menu on click anywhere
