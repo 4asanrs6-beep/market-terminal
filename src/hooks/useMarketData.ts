@@ -11,7 +11,7 @@ export function useMarketData(market: MarketIndex, watchlists: WatchlistInfo[]) 
   const [constituents, setConstituents] = useState<ConstituentInfo[]>([])
   const [quotes, setQuotes] = useState<StockQuote[]>([])
   const [loading, setLoading] = useState(true)
-  const fetchingRef = useRef(false)
+  const requestIdRef = useRef(0)
 
   // All watchlisted symbols across all lists (for highlighting in table)
   const allWatchlistSymbols = useCallback(() => {
@@ -22,20 +22,20 @@ export function useMarketData(market: MarketIndex, watchlists: WatchlistInfo[]) 
     return Array.from(set)
   }, [watchlists])
 
-  const fetchQuotes = useCallback(async (symbols: string[]) => {
+  const fetchQuotes = useCallback(async (symbols: string[], reqId: number) => {
     if (symbols.length === 0) {
       setQuotes([])
       setLoading(false)
       return
     }
-    if (fetchingRef.current) return
-    fetchingRef.current = true
     try {
       const data = await window.electronAPI.getStockQuotes(symbols)
+      if (requestIdRef.current !== reqId) return // stale request
       setQuotes(data)
       setLoading(false)
 
       const sectorMap = await window.electronAPI.getSectors(symbols)
+      if (requestIdRef.current !== reqId) return
       setQuotes(prev => prev.map(q => ({
         ...q,
         sector: sectorMap[q.symbol] || q.sector || '',
@@ -43,6 +43,7 @@ export function useMarketData(market: MarketIndex, watchlists: WatchlistInfo[]) 
 
       try {
         const fiveDayMap = await window.electronAPI.get5DayChanges(symbols)
+        if (requestIdRef.current !== reqId) return
         setQuotes(prev => prev.map(q => ({
           ...q,
           fiveDayChangePercent: fiveDayMap[q.symbol] ?? undefined,
@@ -52,14 +53,14 @@ export function useMarketData(market: MarketIndex, watchlists: WatchlistInfo[]) 
       }
 
     } catch (err) {
+      if (requestIdRef.current !== reqId) return
       console.error('Failed to fetch quotes:', err)
       setLoading(false)
-    } finally {
-      fetchingRef.current = false
     }
   }, [])
 
   const loadMarketData = useCallback(async () => {
+    const reqId = ++requestIdRef.current
     setLoading(true)
     try {
       const wlId = getWatchlistId(market)
@@ -67,20 +68,23 @@ export function useMarketData(market: MarketIndex, watchlists: WatchlistInfo[]) 
         const wl = watchlists.find(l => l.id === wlId)
         const symbols = wl ? wl.symbols : []
         setConstituents(symbols.map(s => ({ symbol: s, name: s, sector: '' })))
-        await fetchQuotes(symbols)
+        await fetchQuotes(symbols, reqId)
       } else {
         const list = await window.electronAPI.getConstituents(market)
+        if (requestIdRef.current !== reqId) return
         setConstituents(list)
         const symbols = list.map(c => c.symbol)
-        await fetchQuotes(symbols)
+        await fetchQuotes(symbols, reqId)
       }
     } catch (err) {
+      if (requestIdRef.current !== reqId) return
       console.error('Failed to load market data:', err)
       setLoading(false)
     }
   }, [market, watchlists, fetchQuotes])
 
   const refresh = useCallback(async () => {
+    const reqId = ++requestIdRef.current
     await window.electronAPI.clearCache()
     const wlId = getWatchlistId(market)
     let symbols: string[]
@@ -91,7 +95,7 @@ export function useMarketData(market: MarketIndex, watchlists: WatchlistInfo[]) 
       symbols = constituents.map(c => c.symbol)
     }
     if (symbols.length > 0) {
-      await fetchQuotes(symbols)
+      await fetchQuotes(symbols, reqId)
     }
   }, [market, watchlists, constituents, fetchQuotes])
 
