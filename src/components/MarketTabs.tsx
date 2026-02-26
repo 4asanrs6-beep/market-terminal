@@ -9,6 +9,8 @@ interface MarketTabsProps {
   onCreateWatchlist: (name: string) => void
   onRenameWatchlist: (id: string, name: string) => void
   onDeleteWatchlist: (id: string) => void
+  onExportWatchlists: () => Promise<boolean>
+  onImportWatchlists: () => Promise<any>
 }
 
 const tabStyle = {
@@ -57,6 +59,8 @@ export function MarketTabs({
   onCreateWatchlist,
   onRenameWatchlist,
   onDeleteWatchlist,
+  onExportWatchlists,
+  onImportWatchlists,
 }: MarketTabsProps) {
   const [contextMenu, setContextMenu] = useState<CtxMenu | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -173,7 +177,7 @@ export function MarketTabs({
         marginTop: '4px',
         borderTop: '1px solid var(--border-color)',
       }}>
-        ウォッチリスト
+        リスト
       </div>
 
       {watchlists.map((list) => {
@@ -294,7 +298,7 @@ export function MarketTabs({
 
       <div style={{ flex: 1 }} />
 
-      <div style={{ padding: '12px' }}>
+      <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
         <button
           onClick={onAddTicker}
           style={{
@@ -319,6 +323,56 @@ export function MarketTabs({
         >
           + 銘柄を追加
         </button>
+        <div style={{ display: 'flex', gap: '6px' }}>
+          <button
+            onClick={onExportWatchlists}
+            style={{
+              flex: 1,
+              padding: '6px',
+              background: 'transparent',
+              border: '1px solid var(--border-color)',
+              borderRadius: '4px',
+              color: 'var(--text-muted)',
+              fontSize: '10px',
+              cursor: 'pointer',
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = 'var(--accent-orange)'
+              e.currentTarget.style.color = 'var(--accent-orange)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = 'var(--border-color)'
+              e.currentTarget.style.color = 'var(--text-muted)'
+            }}
+          >
+            エクスポート
+          </button>
+          <button
+            onClick={onImportWatchlists}
+            style={{
+              flex: 1,
+              padding: '6px',
+              background: 'transparent',
+              border: '1px solid var(--border-color)',
+              borderRadius: '4px',
+              color: 'var(--text-muted)',
+              fontSize: '10px',
+              cursor: 'pointer',
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = 'var(--accent-orange)'
+              e.currentTarget.style.color = 'var(--accent-orange)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = 'var(--border-color)'
+              e.currentTarget.style.color = 'var(--text-muted)'
+            }}
+          >
+            インポート
+          </button>
+        </div>
       </div>
 
       {/* Context menu for watchlist right-click */}

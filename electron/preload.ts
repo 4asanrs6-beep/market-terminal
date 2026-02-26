@@ -31,17 +31,26 @@ contextBridge.exposeInMainWorld('electronAPI', {
   addToWatchlist: (listId: string, ticker: string) =>
     ipcRenderer.invoke('add-to-watchlist', listId, ticker),
 
+  addTickersToWatchlist: (listId: string, tickers: string[]) =>
+    ipcRenderer.invoke('add-tickers-to-watchlist', listId, tickers),
+
   removeFromWatchlist: (listId: string, ticker: string) =>
     ipcRenderer.invoke('remove-from-watchlist', listId, ticker),
+
+  searchTickers: (query: string) =>
+    ipcRenderer.invoke('search-tickers', query),
+
+  exportWatchlists: () =>
+    ipcRenderer.invoke('export-watchlists'),
+
+  importWatchlists: () =>
+    ipcRenderer.invoke('import-watchlists'),
 
   getQuoteSummary: (symbol: string) =>
     ipcRenderer.invoke('get-quote-summary', symbol),
 
   getFinancials: (symbol: string) =>
     ipcRenderer.invoke('get-financials', symbol),
-
-  getSparklines: (symbols: string[]) =>
-    ipcRenderer.invoke('get-sparklines', symbols),
 
   openChartWindow: (symbol: string) =>
     ipcRenderer.invoke('open-chart-window', symbol),

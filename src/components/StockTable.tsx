@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import type { StockQuote, SortField, SortDirection, WatchlistInfo } from '../types/stock'
-import { Sparkline } from './Sparkline'
+import { ListSummary } from './ListSummary'
 import styles from '../styles/StockTable.module.css'
 
 export type ViewMode = 'table' | 'heatmap'
@@ -16,7 +16,6 @@ interface StockTableProps {
   watchlists: WatchlistInfo[]
   onAddToWatchlist: (listId: string, ticker: string) => void
   onRemoveFromWatchlist: (listId: string, ticker: string) => void
-  sparklines: Record<string, number[]>
   viewMode: ViewMode
   onViewModeChange: (mode: ViewMode) => void
 }
@@ -65,8 +64,26 @@ function sectorJa(sector: string): string {
   return SECTOR_MAP[sector] || sector || '-'
 }
 
+function exchangeShort(exchange: string): string {
+  const s = exchange.toLowerCase()
+  if (s.includes('nasdaq') || s === 'nms' || s === 'ngm' || s === 'ncm') return 'NDQ'
+  if (s.includes('nyse') || s === 'nye') return 'NYSE'
+  if (s.includes('tokyo') || s.includes('jpx')) return 'TKY'
+  if (s.includes('london') || s === 'lse') return 'LON'
+  if (s.includes('hong kong') || s === 'hkg') return 'HKG'
+  if (s.includes('shanghai') || s === 'shh') return 'SHA'
+  if (s.includes('shenzhen') || s === 'shz') return 'SHE'
+  if (s.includes('toronto') || s === 'tsx') return 'TSX'
+  if (s.includes('frankfurt') || s === 'fra') return 'FRA'
+  if (s.includes('paris') || s === 'par') return 'PAR'
+  if (s.includes('cboe') || s.includes('bats')) return 'CBOE'
+  if (s.includes('amex') || s === 'ase') return 'AMEX'
+  if (exchange.length > 5) return exchange.slice(0, 4).toUpperCase()
+  return exchange
+}
+
 interface ColumnDef {
-  key: SortField | 'sector' | 'sparkline'
+  key: SortField | 'sector'
   label: string
   defaultWidth: number
   minWidth: number
@@ -87,12 +104,11 @@ function formatEarningsDate(dateStr: string | undefined): string {
 }
 
 const COLUMNS: ColumnDef[] = [
-  { key: 'symbol', label: 'ティッカー', defaultWidth: 80, minWidth: 60 },
+  { key: 'symbol', label: 'ティッカー', defaultWidth: 105, minWidth: 70 },
   { key: 'shortName', label: '銘柄名', defaultWidth: 160, minWidth: 80 },
   { key: 'regularMarketPrice', label: '終値 ($)', defaultWidth: 90, minWidth: 60 },
   { key: 'regularMarketChange', label: '前日比 ($)', defaultWidth: 90, minWidth: 60 },
   { key: 'regularMarketChangePercent', label: '騰落率 (%)', defaultWidth: 90, minWidth: 60 },
-  { key: 'sparkline', label: '推移', defaultWidth: 90, minWidth: 60 },
   { key: 'fiveDayChangePercent', label: '5日騰落率 (%)', defaultWidth: 100, minWidth: 60 },
   { key: 'regularMarketVolume', label: '出来高 (株)', defaultWidth: 90, minWidth: 60 },
   { key: 'marketCap', label: '時価総額 (億$)', defaultWidth: 110, minWidth: 60 },
@@ -119,7 +135,6 @@ export function StockTable({
   watchlists,
   onAddToWatchlist,
   onRemoveFromWatchlist,
-  sparklines,
   viewMode,
   onViewModeChange,
 }: StockTableProps) {
@@ -141,8 +156,8 @@ export function StockTable({
     return () => window.removeEventListener('click', handler)
   }, [])
 
-  const handleSort = (field: SortField | 'sector' | 'sparkline') => {
-    if (field === 'sector' || field === 'sparkline') return // not sortable
+  const handleSort = (field: SortField | 'sector') => {
+    if (field === 'sector') return // not sortable
     if (sortField === field) {
       setSortDir(d => d === 'asc' ? 'desc' : 'asc')
     } else {
@@ -286,6 +301,8 @@ export function StockTable({
         </div>
       )}
 
+      <ListSummary quotes={filtered} />
+
       <div className={styles.toolbar}>
         <div className={styles.viewToggle}>
           <button
@@ -323,7 +340,7 @@ export function StockTable({
           <thead>
             <tr>
               {COLUMNS.map((col, i) => {
-                const isSortable = col.key !== 'sector' && col.key !== 'sparkline'
+                const isSortable = col.key !== 'sector'
                 const isSorted = sortField === col.key
                 return (
                   <th
@@ -371,6 +388,7 @@ export function StockTable({
                   <td>
                     {isInWatchlist && <span className={styles.starIcon}>★</span>}
                     {stock.symbol}
+                    {stock.exchange && <span style={{ fontSize: '9px', color: 'var(--text-muted)', marginLeft: '4px' }}>{exchangeShort(stock.exchange)}</span>}
                   </td>
                   <td>{stock.shortName}</td>
                   <td>{formatNumber(stock.regularMarketPrice)}</td>
@@ -379,9 +397,6 @@ export function StockTable({
                   </td>
                   <td className={changeClass}>
                     {isPositive ? '+' : ''}{formatNumber(stock.regularMarketChangePercent)}%
-                  </td>
-                  <td className={styles.sparklineCell}>
-                    <Sparkline data={sparklines[stock.symbol] || []} width={76} height={28} />
                   </td>
                   <td className={fiveDayClass}>
                     {fiveDay != null

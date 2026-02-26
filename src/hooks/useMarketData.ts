@@ -11,7 +11,6 @@ export function useMarketData(market: MarketIndex, watchlists: WatchlistInfo[]) 
   const [constituents, setConstituents] = useState<ConstituentInfo[]>([])
   const [quotes, setQuotes] = useState<StockQuote[]>([])
   const [loading, setLoading] = useState(true)
-  const [sparklines, setSparklines] = useState<Record<string, number[]>>({})
   const fetchingRef = useRef(false)
 
   // All watchlisted symbols across all lists (for highlighting in table)
@@ -52,12 +51,6 @@ export function useMarketData(market: MarketIndex, watchlists: WatchlistInfo[]) 
         console.error('Failed to fetch 5-day changes:', err)
       }
 
-      try {
-        const sparkData = await window.electronAPI.getSparklines(symbols)
-        setSparklines(sparkData)
-      } catch (err) {
-        console.error('Failed to fetch sparklines:', err)
-      }
     } catch (err) {
       console.error('Failed to fetch quotes:', err)
       setLoading(false)
@@ -112,7 +105,6 @@ export function useMarketData(market: MarketIndex, watchlists: WatchlistInfo[]) 
     loading,
     refresh,
     allWatchlistSymbols,
-    sparklines,
   }
 }
 
@@ -144,9 +136,24 @@ export function useWatchlists() {
     setWatchlistsData(data)
   }, [])
 
+  const addTickersToWatchlist = useCallback(async (listId: string, tickers: string[]) => {
+    const data = await window.electronAPI.addTickersToWatchlist(listId, tickers)
+    setWatchlistsData(data)
+  }, [])
+
   const removeFromWatchlist = useCallback(async (listId: string, ticker: string) => {
     const data = await window.electronAPI.removeFromWatchlist(listId, ticker)
     setWatchlistsData(data)
+  }, [])
+
+  const exportWatchlists = useCallback(async () => {
+    return window.electronAPI.exportWatchlists()
+  }, [])
+
+  const importWatchlists = useCallback(async () => {
+    const data = await window.electronAPI.importWatchlists()
+    if (data) setWatchlistsData(data)
+    return data
   }, [])
 
   return {
@@ -155,7 +162,10 @@ export function useWatchlists() {
     renameWatchlist,
     deleteWatchlist,
     addToWatchlist,
+    addTickersToWatchlist,
     removeFromWatchlist,
+    exportWatchlists,
+    importWatchlists,
   }
 }
 

@@ -1,6 +1,7 @@
 export interface StockQuote {
   symbol: string
   shortName: string
+  exchange: string
   sector: string
   regularMarketPrice: number
   regularMarketChange: number
@@ -92,6 +93,13 @@ export type SortDirection = 'asc' | 'desc'
 export type ChartPeriod = '1d' | '1w' | '1mo' | '3mo' | '6mo' | '1y' | '5y'
 export type ChartType = 'candlestick' | 'line'
 
+export interface SearchResult {
+  symbol: string
+  shortName: string
+  exchange: string
+  quoteType: string
+}
+
 declare global {
   interface Window {
     electronAPI: {
@@ -105,10 +113,13 @@ declare global {
       renameWatchlist: (id: string, name: string) => Promise<WatchlistsData>
       deleteWatchlist: (id: string) => Promise<WatchlistsData>
       addToWatchlist: (listId: string, ticker: string) => Promise<WatchlistsData>
+      addTickersToWatchlist: (listId: string, tickers: string[]) => Promise<WatchlistsData>
       removeFromWatchlist: (listId: string, ticker: string) => Promise<WatchlistsData>
+      searchTickers: (query: string) => Promise<SearchResult[]>
+      exportWatchlists: () => Promise<boolean>
+      importWatchlists: () => Promise<WatchlistsData | null>
       getQuoteSummary: (symbol: string) => Promise<QuoteSummary | null>
       getFinancials: (symbol: string) => Promise<FinancialsData | null>
-      getSparklines: (symbols: string[]) => Promise<Record<string, number[]>>
       openChartWindow: (symbol: string) => Promise<void>
       clearCache: () => Promise<void>
       // AI

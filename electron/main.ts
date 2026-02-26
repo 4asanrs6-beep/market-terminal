@@ -1,7 +1,7 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import path from 'path'
 import fs from 'fs'
-import { getStockQuotes, getChartData, get5DayChanges, getQuoteSummary, getFinancials, getSparklines, clearCache } from './services/marketData'
+import { getStockQuotes, getChartData, get5DayChanges, getQuoteSummary, getFinancials, clearCache, searchTickers } from './services/marketData'
 import { getConstituents, getSectorsForSymbols, MarketIndex } from './services/constituents'
 import { generateMarketCommentary } from './services/aiService'
 import { fetchNewsForSymbols } from './services/newsService'
@@ -189,6 +189,21 @@ ipcMain.handle('add-to-watchlist', async (_event, listId: string, ticker: string
   return data
 })
 
+ipcMain.handle('add-tickers-to-watchlist', async (_event, listId: string, tickers: string[]) => {
+  const data = loadWatchlists()
+  const list = data.lists.find(l => l.id === listId)
+  if (list) {
+    for (const t of tickers) {
+      const upper = t.toUpperCase()
+      if (!list.symbols.includes(upper)) {
+        list.symbols.push(upper)
+      }
+    }
+    saveWatchlists(data)
+  }
+  return data
+})
+
 ipcMain.handle('remove-from-watchlist', async (_event, listId: string, ticker: string) => {
   const data = loadWatchlists()
   const list = data.lists.find(l => l.id === listId)
@@ -197,6 +212,66 @@ ipcMain.handle('remove-from-watchlist', async (_event, listId: string, ticker: s
     saveWatchlists(data)
   }
   return data
+})
+
+ipcMain.handle('export-watchlists', async () => {
+  const data = loadWatchlists()
+  if (data.lists.length === 0) return false
+
+  const result = await dialog.showSaveDialog({
+    title: 'ウォッチリストをエクスポート',
+    defaultPath: 'watchlists.json',
+    filters: [{ name: 'JSON', extensions: ['json'] }],
+  })
+  if (result.canceled || !result.filePath) return false
+
+  const exportData = {
+    lists: data.lists.map(l => ({ name: l.name, symbols: l.symbols })),
+  }
+  fs.writeFileSync(result.filePath, JSON.stringify(exportData, null, 2))
+  return true
+})
+
+ipcMain.handle('import-watchlists', async () => {
+  const result = await dialog.showOpenDialog({
+    title: 'ウォッチリストをインポート',
+    filters: [{ name: 'JSON', extensions: ['json'] }],
+    properties: ['openFile'],
+  })
+  if (result.canceled || result.filePaths.length === 0) return null
+
+  try {
+    const raw = fs.readFileSync(result.filePaths[0], 'utf-8')
+    const imported = JSON.parse(raw) as { lists: { name: string; symbols: string[] }[] }
+    if (!Array.isArray(imported.lists)) return null
+
+    const data = loadWatchlists()
+    for (const entry of imported.lists) {
+      if (!entry.name || !Array.isArray(entry.symbols)) continue
+      const existing = data.lists.find(l => l.name === entry.name)
+      if (existing) {
+        // Merge symbols into existing list
+        for (const s of entry.symbols) {
+          const upper = s.toUpperCase()
+          if (!existing.symbols.includes(upper)) {
+            existing.symbols.push(upper)
+          }
+        }
+      } else {
+        // Create new list
+        data.lists.push({
+          id: generateId(),
+          name: entry.name,
+          symbols: entry.symbols.map(s => s.toUpperCase()),
+        })
+      }
+    }
+    saveWatchlists(data)
+    return data
+  } catch (err) {
+    console.error('import-watchlists error:', err)
+    return null
+  }
 })
 
 ipcMain.handle('get-quote-summary', async (_event, symbol: string) => {
@@ -217,14 +292,6 @@ ipcMain.handle('get-financials', async (_event, symbol: string) => {
   }
 })
 
-ipcMain.handle('get-sparklines', async (_event, symbols: string[]) => {
-  try {
-    return await getSparklines(symbols)
-  } catch (err) {
-    console.error('get-sparklines error:', err)
-    return {}
-  }
-})
 
 ipcMain.handle('open-chart-window', async (_event, symbol: string) => {
   openChartWindow(symbol)
@@ -232,6 +299,15 @@ ipcMain.handle('open-chart-window', async (_event, symbol: string) => {
 
 ipcMain.handle('clear-cache', async () => {
   clearCache()
+})
+
+ipcMain.handle('search-tickers', async (_event, query: string) => {
+  try {
+    return await searchTickers(query)
+  } catch (err) {
+    console.error('search-tickers error:', err)
+    return []
+  }
 })
 
 // --- AI IPC Handlers ---

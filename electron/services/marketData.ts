@@ -3,6 +3,7 @@ export const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit
 interface QuoteResult {
   symbol: string
   shortName: string
+  exchange: string
   sector: string
   regularMarketPrice: number
   regularMarketChange: number
@@ -151,12 +152,42 @@ async function fetchQuotesV7(symbols: string[], retries = 2): Promise<any[]> {
   return []
 }
 
+// Fetch FX rates to USD for given currencies (cached)
+async function getFxRates(currencies: string[]): Promise<Record<string, number>> {
+  if (currencies.length === 0) return {}
+  const sorted = [...currencies].sort()
+  const cacheKey = `fx:${sorted.join(',')}`
+  const cached = getCached<Record<string, number>>(cacheKey)
+  if (cached) return cached
+
+  const rates: Record<string, number> = {}
+  const fxSymbols = sorted.map(c => `${c}USD=X`)
+  try {
+    const fxQuotes = await fetchQuotesV7(fxSymbols)
+    for (const fq of fxQuotes) {
+      const cur = (fq.symbol ?? '').replace('USD=X', '')
+      if (cur && fq.regularMarketPrice > 0) {
+        rates[cur] = fq.regularMarketPrice
+      }
+    }
+    console.log(`getFxRates: ${Object.keys(rates).length}/${currencies.length} rates fetched`, rates)
+  } catch (err) {
+    console.error('getFxRates error:', err)
+  }
+  if (Object.keys(rates).length > 0) {
+    setCache(cacheKey, rates)
+  }
+  return rates
+}
+
 export async function getStockQuotes(symbols: string[]): Promise<QuoteResult[]> {
   const cacheKey = `quotes:${[...symbols].sort().join(',')}`
   const cached = getCached<QuoteResult[]>(cacheKey)
   if (cached) return cached
 
   const results: QuoteResult[] = []
+  // Track currency per result index for FX conversion
+  const currencyPerResult: string[] = []
 
   // v7 API supports batch queries; process in batches of 50 with small delays
   const batchSize = 50
@@ -176,6 +207,7 @@ export async function getStockQuotes(symbols: string[]): Promise<QuoteResult[]> 
         results.push({
           symbol: q.symbol ?? '',
           shortName: q.shortName || q.longName || q.symbol || '',
+          exchange: q.fullExchangeName || q.exchange || '',
           sector: '',  // v7 API does not return sector; filled in by getSectors()
           regularMarketPrice: q.regularMarketPrice ?? 0,
           regularMarketChange: q.regularMarketChange ?? 0,
@@ -190,6 +222,7 @@ export async function getStockQuotes(symbols: string[]): Promise<QuoteResult[]> 
           marketCap: q.marketCap ?? 0,
           earningsDate,
         })
+        currencyPerResult.push(q.currency || 'USD')
       }
       if (quotes.length === 0) {
         console.warn(`Batch ${Math.floor(i / batchSize) + 1}: 0 results for ${batch.length} symbols`)
@@ -200,6 +233,18 @@ export async function getStockQuotes(symbols: string[]): Promise<QuoteResult[]> 
     // Longer delay between batches to avoid Yahoo rate limiting
     if (i + batchSize < symbols.length) {
       await sleep(500)
+    }
+  }
+
+  // Convert non-USD marketCap to USD
+  const nonUsdCurrencies = [...new Set(currencyPerResult.filter(c => c !== 'USD'))]
+  if (nonUsdCurrencies.length > 0) {
+    const fxRates = await getFxRates(nonUsdCurrencies)
+    for (let i = 0; i < results.length; i++) {
+      const cur = currencyPerResult[i]
+      if (cur !== 'USD' && fxRates[cur] && results[i].marketCap > 0) {
+        results[i].marketCap = results[i].marketCap * fxRates[cur]
+      }
     }
   }
 
@@ -516,42 +561,6 @@ export async function getFinancials(symbol: string): Promise<FinancialsData | nu
   }
 }
 
-// --- Sparkline data (batch close prices) ---
-export async function getSparklines(symbols: string[]): Promise<Record<string, number[]>> {
-  const cacheKey = `sparklines:${[...symbols].sort().join(',')}`
-  const cached = getCached<Record<string, number[]>>(cacheKey)
-  if (cached) return cached
-
-  const result: Record<string, number[]> = {}
-  const concurrency = 5
-
-  async function fetchOne(symbol: string): Promise<void> {
-    try {
-      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=1mo&interval=1d&includePrePost=false`
-      const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT } })
-      if (!res.ok) return
-      const json = await res.json() as any
-      const closes: (number | null)[] = json.chart?.result?.[0]?.indicators?.quote?.[0]?.close ?? []
-      const valid = closes.filter((c): c is number => c != null)
-      if (valid.length >= 2) {
-        result[symbol] = valid
-      }
-    } catch { /* skip */ }
-  }
-
-  for (let i = 0; i < symbols.length; i += concurrency) {
-    const batch = symbols.slice(i, i + concurrency)
-    await Promise.all(batch.map(s => fetchOne(s)))
-    if (i + concurrency < symbols.length) {
-      await sleep(200)
-    }
-  }
-
-  console.log(`getSparklines: ${Object.keys(result).length}/${symbols.length} fetched`)
-  setCache(cacheKey, result)
-  return result
-}
-
 // --- Chart data ---
 export async function getChartData(
   symbol: string,
@@ -614,6 +623,50 @@ export async function getChartData(
     return points
   } catch (err) {
     console.error(`Failed to fetch chart data for ${symbol}:`, err)
+    return []
+  }
+}
+
+// --- Ticker search ---
+
+export interface SearchResultItem {
+  symbol: string
+  shortName: string
+  exchange: string
+  quoteType: string
+}
+
+const SEARCH_CACHE_TTL = 60 * 1000 // 1 minute
+
+export async function searchTickers(query: string): Promise<SearchResultItem[]> {
+  if (!query || query.trim().length === 0) return []
+
+  const cacheKey = `search:${query.trim().toLowerCase()}`
+  const cached = getCached<SearchResultItem[]>(cacheKey, SEARCH_CACHE_TTL)
+  if (cached) return cached
+
+  try {
+    const url = `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query.trim())}&quotesCount=8&newsCount=0&listsCount=0`
+    const res = await fetch(url, {
+      headers: { 'User-Agent': USER_AGENT },
+    })
+    if (!res.ok) return []
+
+    const json = await res.json()
+    const quotes = json.quotes ?? []
+    const results: SearchResultItem[] = quotes
+      .filter((q: any) => q.symbol && q.quoteType !== 'OPTION')
+      .map((q: any) => ({
+        symbol: q.symbol,
+        shortName: q.shortname || q.longname || q.symbol,
+        exchange: q.exchDisp || q.exchange || '',
+        quoteType: q.quoteType || '',
+      }))
+
+    setCache(cacheKey, results)
+    return results
+  } catch (err) {
+    console.error('searchTickers error:', err)
     return []
   }
 }

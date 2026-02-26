@@ -321,12 +321,6 @@
   color: #000;
 }
 
-/* Sparkline cell */
-.sparklineCell {
-  padding: 2px 4px !important;
-  text-align: center !important;
-}
-
 /* Earnings date */
 .earningsNormal {
   color: var(--text-muted);

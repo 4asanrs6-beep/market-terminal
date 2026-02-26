@@ -22,20 +22,23 @@ export default function App() {
     renameWatchlist,
     deleteWatchlist,
     addToWatchlist,
+    addTickersToWatchlist,
     removeFromWatchlist,
+    exportWatchlists,
+    importWatchlists,
   } = useWatchlists()
 
-  const { quotes, loading, refresh, allWatchlistSymbols, sparklines } = useMarketData(activeMarket, watchlists)
+  const { quotes, loading, refresh, allWatchlistSymbols } = useMarketData(activeMarket, watchlists)
 
   const handleSelectStock = useCallback((symbol: string) => {
     window.electronAPI.openChartWindow(symbol)
   }, [])
 
-  const handleAddTicker = useCallback(async (ticker: string, listId: string) => {
-    await addToWatchlist(listId, ticker)
-    // Switch to that watchlist so user can see the added ticker
+  const handleAddTickers = useCallback(async (tickers: string[], listId: string) => {
+    await addTickersToWatchlist(listId, tickers)
+    // Switch to that watchlist so user can see the added tickers
     setActiveMarket(`watchlist:${listId}`)
-  }, [addToWatchlist])
+  }, [addTickersToWatchlist])
 
   const handleDeleteWatchlist = useCallback((id: string) => {
     deleteWatchlist(id)
@@ -69,6 +72,8 @@ export default function App() {
           onCreateWatchlist={createWatchlist}
           onRenameWatchlist={renameWatchlist}
           onDeleteWatchlist={handleDeleteWatchlist}
+          onExportWatchlists={exportWatchlists}
+          onImportWatchlists={importWatchlists}
         />
       </div>
 
@@ -91,11 +96,10 @@ export default function App() {
               selectedSymbol={null}
               onSelectStock={handleSelectStock}
               onRefresh={refresh}
-              watchlist={activeMarket.startsWith('watchlist:') ? allWatchlistSymbols() : []}
+              watchlist={activeMarket.startsWith('watchlist:') ? [] : allWatchlistSymbols()}
               watchlists={watchlists}
               onAddToWatchlist={addToWatchlist}
               onRemoveFromWatchlist={removeFromWatchlist}
-              sparklines={sparklines}
               viewMode={viewMode}
               onViewModeChange={setViewMode}
             />
@@ -116,7 +120,7 @@ export default function App() {
       <AddTickerModal
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
-        onAdd={handleAddTicker}
+        onAdd={handleAddTickers}
         watchlists={watchlists}
         activeListId={activeMarket.startsWith('watchlist:') ? activeMarket.slice('watchlist:'.length) : null}
       />
