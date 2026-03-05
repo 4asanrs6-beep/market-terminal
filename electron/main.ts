@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import path from 'path'
 import fs from 'fs'
-import { getStockQuotes, getChartData, get5DayChanges, getQuoteSummary, getFinancials, clearCache, searchTickers } from './services/marketData'
+import { getStockQuotes, getChartData, get5DayChanges, getPreviousDayChanges, getQuoteSummary, getFinancials, clearCache, searchTickers } from './services/marketData'
 import { getConstituents, getSectorsForSymbols, MarketIndex } from './services/constituents'
 import { generateMarketCommentary } from './services/aiService'
 import { fetchNewsForSymbols } from './services/newsService'
@@ -133,6 +133,15 @@ ipcMain.handle('get-5day-changes', async (_event, symbols: string[]) => {
     return await get5DayChanges(symbols)
   } catch (err) {
     console.error('get-5day-changes error:', err)
+    return {}
+  }
+})
+
+ipcMain.handle('get-previous-day-changes', async (_event, symbols: string[]) => {
+  try {
+    return await getPreviousDayChanges(symbols)
+  } catch (err) {
+    console.error('get-previous-day-changes error:', err)
     return {}
   }
 })

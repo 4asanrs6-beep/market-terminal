@@ -17,6 +17,8 @@ interface QuoteResult {
   fiftyTwoWeekLow: number
   marketCap: number
   earningsDate?: string  // YYYY-MM-DD format
+  preMarketChangePercent?: number
+  postMarketChangePercent?: number
 }
 
 interface ChartPoint {
@@ -221,6 +223,8 @@ export async function getStockQuotes(symbols: string[]): Promise<QuoteResult[]> 
           fiftyTwoWeekLow: q.fiftyTwoWeekLow ?? 0,
           marketCap: q.marketCap ?? 0,
           earningsDate,
+          preMarketChangePercent: q.preMarketChangePercent ?? undefined,
+          postMarketChangePercent: q.postMarketChangePercent ?? undefined,
         })
         currencyPerResult.push(q.currency || 'USD')
       }
@@ -256,8 +260,14 @@ export async function getStockQuotes(symbols: string[]): Promise<QuoteResult[]> 
 // --- Sector data (from hardcoded constituents, no API calls needed) ---
 export { getSectorsForSymbols as getSectors } from './constituents'
 
-// --- 5-day change ---
-async function fetch5DayForSymbol(symbol: string): Promise<{ symbol: string; change: number } | null> {
+// --- 5-day change & previous day change ---
+interface DailyChanges {
+  symbol: string
+  fiveDay: number | null
+  prevDay: number | null
+}
+
+async function fetchDailyChangesForSymbol(symbol: string): Promise<DailyChanges | null> {
   try {
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=10d&interval=1d&includePrePost=false`
     const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT } })
@@ -269,14 +279,30 @@ async function fetch5DayForSymbol(symbol: string): Promise<{ symbol: string; cha
 
     const closes: number[] = chartResult.indicators?.quote?.[0]?.close ?? []
     const validCloses = closes.filter((c: any) => c != null)
+
+    let fiveDay: number | null = null
+    let prevDay: number | null = null
+
     if (validCloses.length >= 2) {
+      // 5-day change
       const daysBack = Math.min(5, validCloses.length - 1)
       const oldClose = validCloses[validCloses.length - 1 - daysBack]
       const newClose = validCloses[validCloses.length - 1]
       if (oldClose > 0) {
-        return { symbol, change: ((newClose - oldClose) / oldClose) * 100 }
+        fiveDay = ((newClose - oldClose) / oldClose) * 100
+      }
+
+      // Previous day change: close[n-1] vs close[n-2]
+      if (validCloses.length >= 3) {
+        const prevClose = validCloses[validCloses.length - 2]
+        const prevPrevClose = validCloses[validCloses.length - 3]
+        if (prevPrevClose > 0) {
+          prevDay = ((prevClose - prevPrevClose) / prevPrevClose) * 100
+        }
       }
     }
+
+    return { symbol, fiveDay, prevDay }
   } catch {
     // skip
   }
@@ -293,9 +319,9 @@ export async function get5DayChanges(symbols: string[]): Promise<Record<string, 
 
   for (let i = 0; i < symbols.length; i += concurrency) {
     const batch = symbols.slice(i, i + concurrency)
-    const results = await Promise.all(batch.map(s => fetch5DayForSymbol(s)))
+    const results = await Promise.all(batch.map(s => fetchDailyChangesForSymbol(s)))
     for (const r of results) {
-      if (r) result[r.symbol] = r.change
+      if (r && r.fiveDay != null) result[r.symbol] = r.fiveDay
     }
     if (i + concurrency < symbols.length) {
       await sleep(200)
@@ -303,6 +329,30 @@ export async function get5DayChanges(symbols: string[]): Promise<Record<string, 
   }
 
   console.log(`get5DayChanges: ${Object.keys(result).length}/${symbols.length} fetched`)
+  setCache(cacheKey, result)
+  return result
+}
+
+export async function getPreviousDayChanges(symbols: string[]): Promise<Record<string, number>> {
+  const cacheKey = `prevday:${[...symbols].sort().join(',')}`
+  const cached = getCached<Record<string, number>>(cacheKey)
+  if (cached) return cached
+
+  const result: Record<string, number> = {}
+  const concurrency = 10
+
+  for (let i = 0; i < symbols.length; i += concurrency) {
+    const batch = symbols.slice(i, i + concurrency)
+    const results = await Promise.all(batch.map(s => fetchDailyChangesForSymbol(s)))
+    for (const r of results) {
+      if (r && r.prevDay != null) result[r.symbol] = r.prevDay
+    }
+    if (i + concurrency < symbols.length) {
+      await sleep(200)
+    }
+  }
+
+  console.log(`getPreviousDayChanges: ${Object.keys(result).length}/${symbols.length} fetched`)
   setCache(cacheKey, result)
   return result
 }

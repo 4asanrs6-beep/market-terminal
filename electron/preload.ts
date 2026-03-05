@@ -13,6 +13,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   get5DayChanges: (symbols: string[]) =>
     ipcRenderer.invoke('get-5day-changes', symbols),
 
+  getPreviousDayChanges: (symbols: string[]) =>
+    ipcRenderer.invoke('get-previous-day-changes', symbols),
+
   getSectors: (symbols: string[]) =>
     ipcRenderer.invoke('get-sectors', symbols),
 

@@ -16,6 +16,9 @@ export interface StockQuote {
   marketCap: number
   fiveDayChangePercent?: number
   earningsDate?: string  // YYYY-MM-DD format
+  preMarketChangePercent?: number
+  postMarketChangePercent?: number
+  previousDayChangePercent?: number
 }
 
 export interface ChartPoint {
@@ -88,7 +91,7 @@ export interface FinancialsData {
   quarterly: IncomeStatement[]
 }
 
-export type SortField = 'symbol' | 'shortName' | 'regularMarketPrice' | 'regularMarketPreviousClose' | 'regularMarketChange' | 'regularMarketChangePercent' | 'regularMarketVolume' | 'fiveDayChangePercent' | 'marketCap' | 'earningsDate'
+export type SortField = 'symbol' | 'shortName' | 'regularMarketPrice' | 'regularMarketPreviousClose' | 'regularMarketChange' | 'regularMarketChangePercent' | 'regularMarketVolume' | 'fiveDayChangePercent' | 'marketCap' | 'earningsDate' | 'prePostMarketChangePercent' | 'previousDayChangePercent'
 export type SortDirection = 'asc' | 'desc'
 
 export type ChartPeriod = '1d' | '1w' | '1mo' | '3mo' | '6mo' | '1y' | '5y'
@@ -108,6 +111,7 @@ declare global {
       getStockQuotes: (symbols: string[]) => Promise<StockQuote[]>
       getChartData: (symbol: string, period: string, interval: string) => Promise<ChartPoint[]>
       get5DayChanges: (symbols: string[]) => Promise<Record<string, number>>
+      getPreviousDayChanges: (symbols: string[]) => Promise<Record<string, number>>
       getSectors: (symbols: string[]) => Promise<Record<string, string>>
       getWatchlists: () => Promise<WatchlistsData>
       createWatchlist: (name: string) => Promise<WatchlistsData>

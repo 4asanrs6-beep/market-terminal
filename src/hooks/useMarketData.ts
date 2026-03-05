@@ -11,6 +11,7 @@ export function useMarketData(market: MarketIndex, watchlists: WatchlistInfo[]) 
   const [constituents, setConstituents] = useState<ConstituentInfo[]>([])
   const [quotes, setQuotes] = useState<StockQuote[]>([])
   const [loading, setLoading] = useState(true)
+  const [deferredLoading, setDeferredLoading] = useState(false)
   const requestIdRef = useRef(0)
 
   // All watchlisted symbols across all lists (for highlighting in table)
@@ -42,14 +43,21 @@ export function useMarketData(market: MarketIndex, watchlists: WatchlistInfo[]) 
       })))
 
       try {
-        const fiveDayMap = await window.electronAPI.get5DayChanges(symbols)
+        setDeferredLoading(true)
+        const [fiveDayMap, prevDayMap] = await Promise.all([
+          window.electronAPI.get5DayChanges(symbols),
+          window.electronAPI.getPreviousDayChanges(symbols),
+        ])
         if (requestIdRef.current !== reqId) return
         setQuotes(prev => prev.map(q => ({
           ...q,
           fiveDayChangePercent: fiveDayMap[q.symbol] ?? undefined,
+          previousDayChangePercent: prevDayMap[q.symbol] ?? undefined,
         })))
       } catch (err) {
-        console.error('Failed to fetch 5-day changes:', err)
+        console.error('Failed to fetch 5-day/previous-day changes:', err)
+      } finally {
+        if (requestIdRef.current === reqId) setDeferredLoading(false)
       }
 
     } catch (err) {
@@ -107,6 +115,7 @@ export function useMarketData(market: MarketIndex, watchlists: WatchlistInfo[]) 
     constituents,
     quotes,
     loading,
+    deferredLoading,
     refresh,
     allWatchlistSymbols,
   }

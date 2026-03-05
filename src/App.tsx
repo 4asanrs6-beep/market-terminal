@@ -28,7 +28,7 @@ export default function App() {
     importWatchlists,
   } = useWatchlists()
 
-  const { quotes, loading, refresh, allWatchlistSymbols } = useMarketData(activeMarket, watchlists)
+  const { quotes, loading, deferredLoading, refresh, allWatchlistSymbols } = useMarketData(activeMarket, watchlists)
 
   const handleSelectStock = useCallback((symbol: string) => {
     window.electronAPI.openChartWindow(symbol)
@@ -92,6 +92,7 @@ export default function App() {
             <StockTable
               quotes={quotes}
               loading={loading}
+              deferredLoading={deferredLoading}
               searchQuery={searchQuery}
               selectedSymbol={null}
               onSelectStock={handleSelectStock}

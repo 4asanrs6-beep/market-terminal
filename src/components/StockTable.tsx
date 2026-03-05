@@ -8,6 +8,7 @@ export type ViewMode = 'table' | 'heatmap'
 interface StockTableProps {
   quotes: StockQuote[]
   loading: boolean
+  deferredLoading: boolean
   searchQuery: string
   selectedSymbol: string | null
   onSelectStock: (symbol: string) => void
@@ -109,6 +110,8 @@ const COLUMNS: ColumnDef[] = [
   { key: 'regularMarketPrice', label: '終値 ($)', defaultWidth: 90, minWidth: 60 },
   { key: 'regularMarketChange', label: '前日比 ($)', defaultWidth: 90, minWidth: 60 },
   { key: 'regularMarketChangePercent', label: '騰落率 (%)', defaultWidth: 90, minWidth: 60 },
+  { key: 'prePostMarketChangePercent', label: '時間外 (%)', defaultWidth: 90, minWidth: 60 },
+  { key: 'previousDayChangePercent', label: '前日騰落 (%)', defaultWidth: 95, minWidth: 60 },
   { key: 'fiveDayChangePercent', label: '5日騰落率 (%)', defaultWidth: 100, minWidth: 60 },
   { key: 'regularMarketVolume', label: '出来高 (株)', defaultWidth: 90, minWidth: 60 },
   { key: 'marketCap', label: '時価総額 (億$)', defaultWidth: 110, minWidth: 60 },
@@ -127,6 +130,7 @@ interface ContextMenu {
 export function StockTable({
   quotes,
   loading,
+  deferredLoading,
   searchQuery,
   selectedSymbol,
   onSelectStock,
@@ -246,8 +250,15 @@ export function StockTable({
     }
 
     data.sort((a, b) => {
-      const aVal = a[sortField as keyof StockQuote]
-      const bVal = b[sortField as keyof StockQuote]
+      let aVal: any
+      let bVal: any
+      if (sortField === 'prePostMarketChangePercent') {
+        aVal = a.postMarketChangePercent ?? a.preMarketChangePercent ?? undefined
+        bVal = b.postMarketChangePercent ?? b.preMarketChangePercent ?? undefined
+      } else {
+        aVal = a[sortField as keyof StockQuote]
+        bVal = b[sortField as keyof StockQuote]
+      }
       // Handle earningsDate: undefined/null → sort to end
       if (sortField === 'earningsDate') {
         const aStr = (aVal as string | undefined) || ''
@@ -404,10 +415,34 @@ export function StockTable({
                   <td className={changeClass}>
                     {isPositive ? '+' : ''}{formatNumber(stock.regularMarketChangePercent)}%
                   </td>
+                  <td className={
+                    (stock.postMarketChangePercent ?? stock.preMarketChangePercent) != null
+                      ? ((stock.postMarketChangePercent ?? stock.preMarketChangePercent)! >= 0 ? styles.positive : styles.negative)
+                      : styles.volume
+                  }>
+                    {(() => {
+                      const val = stock.postMarketChangePercent ?? stock.preMarketChangePercent
+                      if (val == null) return '-'
+                      return `${val >= 0 ? '+' : ''}${formatNumber(val)}%`
+                    })()}
+                  </td>
+                  <td className={
+                    stock.previousDayChangePercent != null
+                      ? (stock.previousDayChangePercent >= 0 ? styles.positive : styles.negative)
+                      : styles.volume
+                  }>
+                    {stock.previousDayChangePercent != null
+                      ? `${stock.previousDayChangePercent >= 0 ? '+' : ''}${formatNumber(stock.previousDayChangePercent)}%`
+                      : deferredLoading
+                        ? <span className={styles.cellLoading}>···</span>
+                        : '-'}
+                  </td>
                   <td className={fiveDayClass}>
                     {fiveDay != null
                       ? `${fiveDayPositive ? '+' : ''}${formatNumber(fiveDay)}%`
-                      : '-'}
+                      : deferredLoading
+                        ? <span className={styles.cellLoading}>···</span>
+                        : '-'}
                   </td>
                   <td className={styles.volume}>{formatVolume(stock.regularMarketVolume)}</td>
                   <td className={styles.volume}>{formatMarketCap(stock.marketCap)}</td>
