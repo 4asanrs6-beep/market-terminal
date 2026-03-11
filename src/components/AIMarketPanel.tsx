@@ -23,6 +23,7 @@ function getMarketLabel(market: MarketIndex): string {
   if (market === 'sp500') return 'S&P 500'
   if (market === 'nasdaq100') return 'NASDAQ 100'
   if (market === 'futures') return '先物・指数・通貨'
+  if (market === 'favorites') return 'お気に入り'
   return 'Watchlist'
 }
 

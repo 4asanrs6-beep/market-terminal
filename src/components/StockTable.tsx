@@ -13,7 +13,8 @@ interface StockTableProps {
   selectedSymbol: string | null
   onSelectStock: (symbol: string) => void
   onRefresh: () => void
-  watchlist: string[]
+  favorites: string[]
+  onToggleFavorite: (symbol: string) => void
   watchlists: WatchlistInfo[]
   onAddToWatchlist: (listId: string, ticker: string) => void
   onRemoveFromWatchlist: (listId: string, ticker: string) => void
@@ -126,7 +127,7 @@ interface ContextMenu {
   x: number
   y: number
   symbol: string
-  inWatchlist: boolean
+  isFavorite: boolean
 }
 
 export function StockTable({
@@ -137,7 +138,8 @@ export function StockTable({
   selectedSymbol,
   onSelectStock,
   onRefresh,
-  watchlist,
+  favorites,
+  onToggleFavorite,
   watchlists,
   onAddToWatchlist,
   onRemoveFromWatchlist,
@@ -169,7 +171,7 @@ export function StockTable({
     }
   }, [quotesKey, isFuturesMarket])
 
-  const watchlistSet = useMemo(() => new Set(watchlist), [watchlist])
+  const favoritesSet = useMemo(() => new Set(favorites), [favorites])
 
   // Close context menu on click anywhere
   useEffect(() => {
@@ -234,9 +236,9 @@ export function StockTable({
       x: e.clientX,
       y: e.clientY,
       symbol,
-      inWatchlist: watchlistSet.has(symbol),
+      isFavorite: favoritesSet.has(symbol),
     })
-  }, [watchlistSet])
+  }, [favoritesSet])
 
   // Collect unique sectors from data (preserving order of appearance for futures)
   const sectors = useMemo(() => {
@@ -412,20 +414,20 @@ export function StockTable({
               const fiveDayClass = fiveDay != null
                 ? (fiveDayPositive ? styles.positive : styles.negative)
                 : styles.volume
-              const isInWatchlist = watchlistSet.has(stock.symbol)
+              const isFav = favoritesSet.has(stock.symbol)
               return (
                 <tr
                   key={stock.symbol}
                   className={[
                     styles.row,
                     selectedSymbol === stock.symbol ? styles.selected : '',
-                    isInWatchlist ? styles.watchlisted : '',
+                    isFav ? styles.watchlisted : '',
                   ].join(' ')}
                   onClick={() => onSelectStock(stock.symbol)}
                   onContextMenu={e => handleContextMenu(e, stock.symbol)}
                 >
                   <td>
-                    {isInWatchlist && <span className={styles.starIcon}>★</span>}
+                    {isFav && <span className={styles.starIcon}>★</span>}
                     {stock.symbol}
                     {stock.exchange && <span style={{ fontSize: '9px', color: 'var(--text-muted)', marginLeft: '4px' }}>{exchangeShort(stock.exchange)}</span>}
                   </td>
@@ -499,6 +501,18 @@ export function StockTable({
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onClick={e => e.stopPropagation()}
         >
+          <button
+            className={styles.contextMenuItem}
+            onClick={() => {
+              onToggleFavorite(contextMenu.symbol)
+              setContextMenu(null)
+            }}
+          >
+            {contextMenu.isFavorite ? '★ お気に入り解除' : '☆ お気に入りに追加'}
+          </button>
+          {watchlists.length > 0 && (
+            <div style={{ borderTop: '1px solid var(--border-color)', margin: '4px 0' }} />
+          )}
           {watchlists.map(wl => {
             const isIn = wl.symbols.includes(contextMenu.symbol)
             return (
@@ -514,15 +528,10 @@ export function StockTable({
                   setContextMenu(null)
                 }}
               >
-                {isIn ? '★' : '☆'} {wl.name}
+                {isIn ? '✓' : '　'} {wl.name}
               </button>
             )
           })}
-          {watchlists.length === 0 && !isFuturesMarket && (
-            <div className={styles.contextMenuItem} style={{ color: 'var(--text-muted)', cursor: 'default' }}>
-              リストがありません
-            </div>
-          )}
           {isFuturesMarket && onRemoveFromFutures && (
             <>
               {watchlists.length > 0 && <div style={{ borderTop: '1px solid var(--border-color)', margin: '4px 0' }} />}

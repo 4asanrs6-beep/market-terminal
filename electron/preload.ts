@@ -67,6 +67,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   clearCache: () =>
     ipcRenderer.invoke('clear-cache'),
 
+  // Favorites
+  getFavorites: () =>
+    ipcRenderer.invoke('get-favorites'),
+
+  toggleFavorite: (symbol: string) =>
+    ipcRenderer.invoke('toggle-favorite', symbol),
+
   // Briefing history
   saveBriefing: (entry: { marketName: string; text: string }) =>
     ipcRenderer.invoke('save-briefing', entry),

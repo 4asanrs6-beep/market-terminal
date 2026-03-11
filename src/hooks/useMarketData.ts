@@ -14,15 +14,6 @@ export function useMarketData(market: MarketIndex, watchlists: WatchlistInfo[]) 
   const [deferredLoading, setDeferredLoading] = useState(false)
   const requestIdRef = useRef(0)
 
-  // All watchlisted symbols across all lists (for highlighting in table)
-  const allWatchlistSymbols = useCallback(() => {
-    const set = new Set<string>()
-    for (const wl of watchlists) {
-      for (const s of wl.symbols) set.add(s)
-    }
-    return Array.from(set)
-  }, [watchlists])
-
   const fetchQuotes = useCallback(async (symbols: string[], reqId: number, constituentNames?: Record<string, string>) => {
     if (symbols.length === 0) {
       setQuotes([])
@@ -80,7 +71,12 @@ export function useMarketData(market: MarketIndex, watchlists: WatchlistInfo[]) 
     setLoading(true)
     try {
       const wlId = getWatchlistId(market)
-      if (wlId) {
+      if (market === 'favorites') {
+        const symbols = await window.electronAPI.getFavorites()
+        if (requestIdRef.current !== reqId) return
+        setConstituents(symbols.map(s => ({ symbol: s, name: s, sector: '' })))
+        await fetchQuotes(symbols, reqId)
+      } else if (wlId) {
         const wl = watchlists.find(l => l.id === wlId)
         const symbols = wl ? wl.symbols : []
         setConstituents(symbols.map(s => ({ symbol: s, name: s, sector: '' })))
@@ -133,7 +129,6 @@ export function useMarketData(market: MarketIndex, watchlists: WatchlistInfo[]) 
     deferredLoading,
     refresh,
     reload: loadMarketData,
-    allWatchlistSymbols,
   }
 }
 
@@ -196,6 +191,21 @@ export function useWatchlists() {
     exportWatchlists,
     importWatchlists,
   }
+}
+
+export function useFavorites() {
+  const [favorites, setFavorites] = useState<string[]>([])
+
+  useEffect(() => {
+    window.electronAPI.getFavorites().then(setFavorites)
+  }, [])
+
+  const toggleFavorite = useCallback(async (symbol: string) => {
+    const updated = await window.electronAPI.toggleFavorite(symbol)
+    setFavorites(updated)
+  }, [])
+
+  return { favorites, toggleFavorite }
 }
 
 export function useChartData(symbol: string | null, period: string, interval: string) {

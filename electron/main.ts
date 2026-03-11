@@ -194,6 +194,25 @@ function saveBriefingHistory(data: BriefingHistoryData) {
   fs.writeFileSync(getBriefingHistoryPath(), JSON.stringify(data, null, 2))
 }
 
+// --- Favorites persistence ---
+
+function getFavoritesPath() {
+  return path.join(app.getPath('userData'), 'favorites.json')
+}
+
+function loadFavorites(): string[] {
+  try {
+    const data = fs.readFileSync(getFavoritesPath(), 'utf-8')
+    return JSON.parse(data) as string[]
+  } catch {
+    return []
+  }
+}
+
+function saveFavorites(symbols: string[]) {
+  fs.writeFileSync(getFavoritesPath(), JSON.stringify(symbols, null, 2))
+}
+
 // --- IPC Handlers ---
 
 ipcMain.handle('get-constituents', async (_event, market: MarketIndex) => {
@@ -249,6 +268,23 @@ ipcMain.handle('get-previous-day-changes', async (_event, symbols: string[]) => 
 
 ipcMain.handle('get-sectors', async (_event, symbols: string[]) => {
   return getSectorsForSymbols(symbols)
+})
+
+ipcMain.handle('get-favorites', async () => {
+  return loadFavorites()
+})
+
+ipcMain.handle('toggle-favorite', async (_event, symbol: string) => {
+  const favorites = loadFavorites()
+  const upper = symbol.toUpperCase()
+  const idx = favorites.indexOf(upper)
+  if (idx >= 0) {
+    favorites.splice(idx, 1)
+  } else {
+    favorites.push(upper)
+  }
+  saveFavorites(favorites)
+  return favorites
 })
 
 ipcMain.handle('get-chart-data', async (_event, symbol: string, period: string, interval: string) => {

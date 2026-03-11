@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react'
 import type { MarketIndex } from './types/stock'
-import { useMarketData, useWatchlists } from './hooks/useMarketData'
+import { useMarketData, useWatchlists, useFavorites } from './hooks/useMarketData'
 import { Header } from './components/Header'
 import { MarketTabs } from './components/MarketTabs'
 import { StockTable, type ViewMode } from './components/StockTable'
@@ -30,7 +30,15 @@ export default function App() {
     importWatchlists,
   } = useWatchlists()
 
-  const { quotes, loading, deferredLoading, refresh, reload, allWatchlistSymbols } = useMarketData(activeMarket, watchlists)
+  const { quotes, loading, deferredLoading, refresh, reload } = useMarketData(activeMarket, watchlists)
+  const { favorites, toggleFavorite } = useFavorites()
+
+  const handleToggleFavorite = useCallback(async (symbol: string) => {
+    await toggleFavorite(symbol)
+    if (activeMarket === 'favorites') {
+      reload()
+    }
+  }, [toggleFavorite, activeMarket, reload])
 
   const handleSelectStock = useCallback((symbol: string) => {
     window.electronAPI.openChartWindow(symbol)
@@ -97,6 +105,7 @@ export default function App() {
           activeMarket={activeMarket}
           onMarketChange={setActiveMarket}
           onAddTicker={handleAddButtonClick}
+          favoritesCount={favorites.length}
           watchlists={watchlists}
           onCreateWatchlist={createWatchlist}
           onRenameWatchlist={renameWatchlist}
@@ -126,7 +135,8 @@ export default function App() {
               selectedSymbol={null}
               onSelectStock={handleSelectStock}
               onRefresh={refresh}
-              watchlist={activeMarket.startsWith('watchlist:') ? [] : allWatchlistSymbols()}
+              favorites={favorites}
+              onToggleFavorite={handleToggleFavorite}
               watchlists={watchlists}
               onAddToWatchlist={addToWatchlist}
               onRemoveFromWatchlist={removeFromWatchlist}
