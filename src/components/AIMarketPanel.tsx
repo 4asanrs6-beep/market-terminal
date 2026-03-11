@@ -10,12 +10,24 @@ interface AIMarketPanelProps {
 }
 
 type PanelState = 'idle' | 'loading' | 'streaming' | 'done' | 'error'
+type PanelView = 'current' | 'history' | 'detail'
+
+interface BriefingEntry {
+  id: string
+  marketName: string
+  timestamp: string
+  text: string
+}
+
+function getMarketLabel(market: MarketIndex): string {
+  if (market === 'sp500') return 'S&P 500'
+  if (market === 'nasdaq100') return 'NASDAQ 100'
+  if (market === 'futures') return '先物・指数・通貨'
+  return 'Watchlist'
+}
 
 function buildMarketSummary(quotes: StockQuote[], activeMarket: MarketIndex): MarketSummary {
-  const marketName = activeMarket === 'sp500' ? 'S&P 500'
-    : activeMarket === 'nasdaq100' ? 'NASDAQ 100'
-    : activeMarket === 'futures' ? '先物・指数・通貨'
-    : 'Watchlist'
+  const marketName = getMarketLabel(activeMarket)
 
   const advancers = quotes.filter(q => q.regularMarketChangePercent > 0).length
   const decliners = quotes.filter(q => q.regularMarketChangePercent < 0).length
@@ -106,13 +118,35 @@ function buildMarketSummary(quotes: StockQuote[], activeMarket: MarketIndex): Ma
   }
 }
 
+function formatHistoryDate(isoString: string): string {
+  const d = new Date(isoString)
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  const hh = String(d.getHours()).padStart(2, '0')
+  const min = String(d.getMinutes()).padStart(2, '0')
+  return `${yyyy}/${mm}/${dd} ${hh}:${min}`
+}
+
 export function AIMarketPanel({ quotes, activeMarket, onClose }: AIMarketPanelProps) {
   const [state, setState] = useState<PanelState>('idle')
+  const [view, setView] = useState<PanelView>('current')
   const [commentary, setCommentary] = useState('')
   const [error, setError] = useState('')
   const [timestamp, setTimestamp] = useState<string | null>(null)
+  const [history, setHistory] = useState<BriefingEntry[]>([])
+  const [selectedEntry, setSelectedEntry] = useState<BriefingEntry | null>(null)
   const requestIdRef = useRef<string | null>(null)
   const contentRef = useRef<HTMLDivElement>(null)
+  const detailRef = useRef<HTMLDivElement>(null)
+  const savedRef = useRef(false)
+
+  // Load history on mount
+  useEffect(() => {
+    window.electronAPI.getBriefingHistory().then(data => {
+      setHistory(data.entries)
+    })
+  }, [])
 
   // Register/cleanup stream listeners
   useEffect(() => {
@@ -139,6 +173,17 @@ export function AIMarketPanel({ quotes, activeMarket, onClose }: AIMarketPanelPr
     }
   }, [])
 
+  // Auto-save when streaming completes
+  useEffect(() => {
+    if (state === 'done' && commentary && !savedRef.current) {
+      savedRef.current = true
+      const marketName = getMarketLabel(activeMarket)
+      window.electronAPI.saveBriefing({ marketName, text: commentary }).then(data => {
+        setHistory(data.entries)
+      })
+    }
+  }, [state, commentary, activeMarket])
+
   // Auto-scroll during streaming, reset to top when done
   const wasStreamingRef = useRef(false)
   useEffect(() => {
@@ -160,6 +205,8 @@ export function AIMarketPanel({ quotes, activeMarket, onClose }: AIMarketPanelPr
     setState('loading')
     setCommentary('')
     setError('')
+    setView('current')
+    savedRef.current = false
     const summary = buildMarketSummary(quotes, activeMarket)
     try {
       const reqId = await window.electronAPI.aiMarketCommentary(summary)
@@ -170,13 +217,63 @@ export function AIMarketPanel({ quotes, activeMarket, onClose }: AIMarketPanelPr
     }
   }, [quotes, activeMarket])
 
+  const handleShowHistory = useCallback(() => {
+    setView('history')
+    setSelectedEntry(null)
+    window.electronAPI.getBriefingHistory().then(data => {
+      setHistory(data.entries)
+    })
+  }, [])
+
+  const handleSelectEntry = useCallback((entry: BriefingEntry) => {
+    setSelectedEntry(entry)
+    setView('detail')
+  }, [])
+
+  const handleDeleteEntry = useCallback(async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    const data = await window.electronAPI.deleteBriefing(id)
+    setHistory(data.entries)
+  }, [])
+
+  const handleBackToCurrent = useCallback(() => {
+    setView('current')
+    setSelectedEntry(null)
+  }, [])
+
+  const handleBackToHistory = useCallback(() => {
+    setView('history')
+    setSelectedEntry(null)
+  }, [])
+
+  // Scroll detail to top when entry changes
+  useEffect(() => {
+    if (view === 'detail' && detailRef.current) {
+      detailRef.current.scrollTop = 0
+    }
+  }, [selectedEntry, view])
+
   return (
     <div className={styles.panel}>
       <div className={styles.panelHeader}>
         <span className={styles.panelTitle}>AI MARKET BRIEF</span>
-        {(state === 'done' || state === 'streaming') && (
+        {view !== 'current' && (
+          <button
+            className={styles.headerBtn}
+            onClick={view === 'detail' ? handleBackToHistory : handleBackToCurrent}
+            title="戻る"
+          >
+            &#x2190;
+          </button>
+        )}
+        {view === 'current' && (state === 'done' || state === 'streaming') && (
           <button className={styles.headerBtn} onClick={handleGenerate} title="更新">
             &#x21BB;
+          </button>
+        )}
+        {view === 'current' && (
+          <button className={styles.headerBtn} onClick={handleShowHistory} title="履歴">
+            &#x1F4CB;
           </button>
         )}
         <button className={styles.headerBtn} onClick={onClose} title="閉じる">
@@ -184,47 +281,106 @@ export function AIMarketPanel({ quotes, activeMarket, onClose }: AIMarketPanelPr
         </button>
       </div>
 
-      {timestamp && (
-        <div className={styles.timestamp}>
-          Updated: {timestamp}
-        </div>
-      )}
-
-      {state === 'idle' && (
-        <div className={styles.generatePrompt}>
-          <button className={styles.generateBtn} onClick={handleGenerate}>
-            解説を生成
-          </button>
-          <div className={styles.generateHint}>
-            現在表示中のマーケットデータに基づき<br />
-            AIがマーケットブリーフを作成します
+      {/* --- History list view --- */}
+      {view === 'history' && (
+        <>
+          <div className={styles.historyHeader}>BRIEFING HISTORY</div>
+          <div className={styles.historyList}>
+            {history.length === 0 && (
+              <div className={styles.historyEmpty}>履歴がありません</div>
+            )}
+            {[...history].reverse().map(entry => (
+              <div
+                key={entry.id}
+                className={styles.historyItem}
+                onClick={() => handleSelectEntry(entry)}
+              >
+                <div className={styles.historyItemHeader}>
+                  <span className={styles.historyMarket}>{entry.marketName}</span>
+                  <button
+                    className={styles.historyDeleteBtn}
+                    onClick={(e) => handleDeleteEntry(entry.id, e)}
+                    title="削除"
+                  >
+                    &#x2715;
+                  </button>
+                </div>
+                <div className={styles.historyDate}>
+                  {formatHistoryDate(entry.timestamp)}
+                </div>
+                <div className={styles.historyPreview}>
+                  {entry.text.slice(0, 80)}...
+                </div>
+              </div>
+            ))}
           </div>
-        </div>
+        </>
       )}
 
-      {state === 'loading' && (
-        <div className={styles.loading}>
-          <div className={styles.spinner} />
-          <div className={styles.loadingText}>Generating market brief...</div>
-        </div>
-      )}
-
-      {(state === 'streaming' || state === 'done') && (
-        <div className={styles.content} ref={contentRef}>
-          <div className={styles.commentaryText}>
-            {commentary}
-            {state === 'streaming' && <span className={styles.cursor} />}
+      {/* --- History detail view --- */}
+      {view === 'detail' && selectedEntry && (
+        <>
+          <div className={styles.detailHeader}>
+            <span className={styles.detailMarket}>{selectedEntry.marketName}</span>
+            <span className={styles.detailDate}>{formatHistoryDate(selectedEntry.timestamp)}</span>
           </div>
-        </div>
+          <div className={styles.content} ref={detailRef}>
+            <div className={styles.commentaryText}>{selectedEntry.text}</div>
+          </div>
+        </>
       )}
 
-      {state === 'error' && (
-        <div className={styles.error}>
-          <div className={styles.errorText}>Error: {error}</div>
-          <button className={styles.retryBtn} onClick={handleGenerate}>
-            リトライ
-          </button>
-        </div>
+      {/* --- Current briefing view --- */}
+      {view === 'current' && (
+        <>
+          {timestamp && (
+            <div className={styles.timestamp}>
+              Updated: {timestamp}
+            </div>
+          )}
+
+          {state === 'idle' && (
+            <div className={styles.generatePrompt}>
+              <button className={styles.generateBtn} onClick={handleGenerate}>
+                解説を生成
+              </button>
+              <div className={styles.generateHint}>
+                現在表示中のマーケットデータに基づき<br />
+                AIがマーケットブリーフを作成します
+              </div>
+              {history.length > 0 && (
+                <button className={styles.historyLink} onClick={handleShowHistory}>
+                  過去の履歴を見る ({history.length}件)
+                </button>
+              )}
+            </div>
+          )}
+
+          {state === 'loading' && (
+            <div className={styles.loading}>
+              <div className={styles.spinner} />
+              <div className={styles.loadingText}>Generating market brief...</div>
+            </div>
+          )}
+
+          {(state === 'streaming' || state === 'done') && (
+            <div className={styles.content} ref={contentRef}>
+              <div className={styles.commentaryText}>
+                {commentary}
+                {state === 'streaming' && <span className={styles.cursor} />}
+              </div>
+            </div>
+          )}
+
+          {state === 'error' && (
+            <div className={styles.error}>
+              <div className={styles.errorText}>Error: {error}</div>
+              <button className={styles.retryBtn} onClick={handleGenerate}>
+                リトライ
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   )

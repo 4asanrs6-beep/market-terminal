@@ -129,6 +129,10 @@ declare global {
       getFinancials: (symbol: string) => Promise<FinancialsData | null>
       openChartWindow: (symbol: string) => Promise<void>
       clearCache: () => Promise<void>
+      // Briefing history
+      saveBriefing: (entry: { marketName: string; text: string }) => Promise<any>
+      getBriefingHistory: () => Promise<{ entries: { id: string; marketName: string; timestamp: string; text: string }[] }>
+      deleteBriefing: (id: string) => Promise<any>
       // AI
       aiMarketCommentary: (summary: any) => Promise<string>
       onAIStreamChunk: (cb: (data: { requestId: string; text: string }) => void) => void

@@ -160,6 +160,40 @@ function saveFuturesList(list: FuturesEntry[]) {
   updateFuturesSectorMap(list)
 }
 
+// --- AI Briefing History persistence ---
+
+interface BriefingEntry {
+  id: string
+  marketName: string
+  timestamp: string
+  text: string
+}
+
+interface BriefingHistoryData {
+  entries: BriefingEntry[]
+}
+
+function getBriefingHistoryPath() {
+  return path.join(app.getPath('userData'), 'ai-briefing-history.json')
+}
+
+function loadBriefingHistory(): BriefingHistoryData {
+  try {
+    const data = fs.readFileSync(getBriefingHistoryPath(), 'utf-8')
+    return JSON.parse(data) as BriefingHistoryData
+  } catch {
+    return { entries: [] }
+  }
+}
+
+function saveBriefingHistory(data: BriefingHistoryData) {
+  // Keep max 100 entries
+  if (data.entries.length > 100) {
+    data.entries = data.entries.slice(-100)
+  }
+  fs.writeFileSync(getBriefingHistoryPath(), JSON.stringify(data, null, 2))
+}
+
 // --- IPC Handlers ---
 
 ipcMain.handle('get-constituents', async (_event, market: MarketIndex) => {
@@ -386,6 +420,32 @@ ipcMain.handle('search-tickers', async (_event, query: string) => {
   }
 })
 
+// --- Briefing History IPC Handlers ---
+
+ipcMain.handle('save-briefing', async (_event, entry: { marketName: string; text: string }) => {
+  const data = loadBriefingHistory()
+  const newEntry: BriefingEntry = {
+    id: `br_${Date.now()}`,
+    marketName: entry.marketName,
+    timestamp: new Date().toISOString(),
+    text: entry.text,
+  }
+  data.entries.push(newEntry)
+  saveBriefingHistory(data)
+  return data
+})
+
+ipcMain.handle('get-briefing-history', async () => {
+  return loadBriefingHistory()
+})
+
+ipcMain.handle('delete-briefing', async (_event, id: string) => {
+  const data = loadBriefingHistory()
+  data.entries = data.entries.filter(e => e.id !== id)
+  saveBriefingHistory(data)
+  return data
+})
+
 // --- AI IPC Handlers ---
 
 ipcMain.handle('ai-market-commentary', async (event, summary) => {
@@ -393,9 +453,13 @@ ipcMain.handle('ai-market-commentary', async (event, summary) => {
   const sender = event.sender
 
   // 1) Fetch news BEFORE returning requestId (renderer shows loading spinner)
-  const gainers = (summary.topGainers ?? []).slice(0, 5).map((g: any) => g.symbol as string)
-  const losers = (summary.topLosers ?? []).slice(0, 5).map((l: any) => l.symbol as string)
-  const newsSymbols = [...new Set([...gainers, ...losers])]
+  //    Cover daily top movers, weekly top movers, and top volume for comprehensive news
+  const gainers = (summary.topGainers ?? []).slice(0, 10).map((g: any) => g.symbol as string)
+  const losers = (summary.topLosers ?? []).slice(0, 10).map((l: any) => l.symbol as string)
+  const weeklyGainers = (summary.weeklyGainers ?? []).slice(0, 10).map((g: any) => g.symbol as string)
+  const weeklyLosers = (summary.weeklyLosers ?? []).slice(0, 10).map((l: any) => l.symbol as string)
+  const topVol = (summary.topVolume ?? []).slice(0, 5).map((v: any) => v.symbol as string)
+  const newsSymbols = [...new Set([...gainers, ...losers, ...weeklyGainers, ...weeklyLosers, ...topVol])]
 
   let news: Record<string, { title: string; publisher: string; publishedAt?: string }[]> = {}
   try {

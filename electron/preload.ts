@@ -67,6 +67,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   clearCache: () =>
     ipcRenderer.invoke('clear-cache'),
 
+  // Briefing history
+  saveBriefing: (entry: { marketName: string; text: string }) =>
+    ipcRenderer.invoke('save-briefing', entry),
+
+  getBriefingHistory: () =>
+    ipcRenderer.invoke('get-briefing-history'),
+
+  deleteBriefing: (id: string) =>
+    ipcRenderer.invoke('delete-briefing', id),
+
   // AI
   aiMarketCommentary: (summary: any) =>
     ipcRenderer.invoke('ai-market-commentary', summary),
