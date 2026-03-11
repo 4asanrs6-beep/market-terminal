@@ -125,6 +125,8 @@ declare global {
       removeFromFutures: (symbol: string) => Promise<any>
       exportWatchlists: () => Promise<boolean>
       importWatchlists: () => Promise<WatchlistsData | null>
+      exportData: (options: { watchlists: boolean; futures: boolean; favorites: boolean }) => Promise<boolean>
+      importData: () => Promise<{ watchlists: boolean; futures: boolean; favorites: boolean } | null>
       getQuoteSummary: (symbol: string) => Promise<QuoteSummary | null>
       getFinancials: (symbol: string) => Promise<FinancialsData | null>
       openChartWindow: (symbol: string) => Promise<void>

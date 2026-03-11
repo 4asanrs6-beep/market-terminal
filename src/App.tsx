@@ -7,6 +7,7 @@ import { StockTable, type ViewMode } from './components/StockTable'
 import { SectorHeatmap } from './components/SectorHeatmap'
 import { AddTickerModal } from './components/AddTickerModal'
 import { AddFuturesModal } from './components/AddFuturesModal'
+import { ExportModal } from './components/ExportModal'
 import { AIMarketPanel } from './components/AIMarketPanel'
 import styles from './styles/App.module.css'
 
@@ -15,6 +16,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('')
   const [showAddModal, setShowAddModal] = useState(false)
   const [showAddFuturesModal, setShowAddFuturesModal] = useState(false)
+  const [showExportModal, setShowExportModal] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('table')
   const [showAIPanel, setShowAIPanel] = useState(false)
 
@@ -26,12 +28,11 @@ export default function App() {
     addToWatchlist,
     addTickersToWatchlist,
     removeFromWatchlist,
-    exportWatchlists,
-    importWatchlists,
+    reloadWatchlists,
   } = useWatchlists()
 
   const { quotes, loading, deferredLoading, refresh, reload } = useMarketData(activeMarket, watchlists)
-  const { favorites, toggleFavorite } = useFavorites()
+  const { favorites, toggleFavorite, reloadFavorites } = useFavorites()
 
   const handleToggleFavorite = useCallback(async (symbol: string) => {
     await toggleFavorite(symbol)
@@ -89,6 +90,20 @@ export default function App() {
     setShowAIPanel(prev => !prev)
   }, [])
 
+  const handleImport = useCallback(async () => {
+    const result = await window.electronAPI.importData()
+    if (result) {
+      if (result.watchlists) {
+        await reloadWatchlists()
+      }
+      if (result.favorites) {
+        reloadFavorites()
+      }
+      // Reload current market data to reflect imported changes
+      reload()
+    }
+  }, [reloadWatchlists, reloadFavorites, reload])
+
   return (
     <div className={`${styles.app} ${showAIPanel ? styles.withAI : ''}`}>
       <div className={styles.header}>
@@ -110,8 +125,8 @@ export default function App() {
           onCreateWatchlist={createWatchlist}
           onRenameWatchlist={renameWatchlist}
           onDeleteWatchlist={handleDeleteWatchlist}
-          onExportWatchlists={exportWatchlists}
-          onImportWatchlists={importWatchlists}
+          onExport={() => setShowExportModal(true)}
+          onImport={handleImport}
         />
       </div>
 
@@ -172,6 +187,11 @@ export default function App() {
         onClose={() => setShowAddFuturesModal(false)}
         onAdd={handleAddToFutures}
         existingSymbols={futuresSymbolSet}
+      />
+
+      <ExportModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
       />
     </div>
   )

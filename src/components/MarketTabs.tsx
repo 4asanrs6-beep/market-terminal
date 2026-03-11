@@ -10,8 +10,8 @@ interface MarketTabsProps {
   onCreateWatchlist: (name: string) => void
   onRenameWatchlist: (id: string, name: string) => void
   onDeleteWatchlist: (id: string) => void
-  onExportWatchlists: () => Promise<boolean>
-  onImportWatchlists: () => Promise<any>
+  onExport: () => void
+  onImport: () => void
 }
 
 const tabStyle = {
@@ -63,8 +63,8 @@ export function MarketTabs({
   onCreateWatchlist,
   onRenameWatchlist,
   onDeleteWatchlist,
-  onExportWatchlists,
-  onImportWatchlists,
+  onExport,
+  onImport,
 }: MarketTabsProps) {
   const [contextMenu, setContextMenu] = useState<CtxMenu | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -331,7 +331,7 @@ export function MarketTabs({
         </button>
         <div style={{ display: 'flex', gap: '6px' }}>
           <button
-            onClick={onExportWatchlists}
+            onClick={onExport}
             style={{
               flex: 1,
               padding: '6px',
@@ -355,7 +355,7 @@ export function MarketTabs({
             エクスポート
           </button>
           <button
-            onClick={onImportWatchlists}
+            onClick={onImport}
             style={{
               flex: 1,
               padding: '6px',

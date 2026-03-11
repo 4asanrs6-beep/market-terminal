@@ -180,6 +180,11 @@ export function useWatchlists() {
     return data
   }, [])
 
+  const reloadWatchlists = useCallback(async () => {
+    const data = await window.electronAPI.getWatchlists()
+    setWatchlistsData(data)
+  }, [])
+
   return {
     watchlists: watchlistsData.lists,
     createWatchlist,
@@ -190,6 +195,7 @@ export function useWatchlists() {
     removeFromWatchlist,
     exportWatchlists,
     importWatchlists,
+    reloadWatchlists,
   }
 }
 
@@ -205,7 +211,11 @@ export function useFavorites() {
     setFavorites(updated)
   }, [])
 
-  return { favorites, toggleFavorite }
+  const reloadFavorites = useCallback(() => {
+    window.electronAPI.getFavorites().then(setFavorites)
+  }, [])
+
+  return { favorites, toggleFavorite, reloadFavorites }
 }
 
 export function useChartData(symbol: string | null, period: string, interval: string) {

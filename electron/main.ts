@@ -360,27 +360,36 @@ ipcMain.handle('remove-from-watchlist', async (_event, listId: string, ticker: s
   return data
 })
 
-ipcMain.handle('export-watchlists', async () => {
-  const data = loadWatchlists()
-  if (data.lists.length === 0) return false
+ipcMain.handle('export-data', async (_event, options: { watchlists: boolean; futures: boolean; favorites: boolean }) => {
+  const exportData: any = {}
+
+  if (options.watchlists) {
+    const data = loadWatchlists()
+    exportData.lists = data.lists.map(l => ({ name: l.name, symbols: l.symbols }))
+  }
+  if (options.futures) {
+    exportData.futures = loadFuturesList()
+  }
+  if (options.favorites) {
+    exportData.favorites = loadFavorites()
+  }
+
+  if (Object.keys(exportData).length === 0) return false
 
   const result = await dialog.showSaveDialog({
-    title: 'ウォッチリストをエクスポート',
-    defaultPath: 'watchlists.json',
+    title: 'データをエクスポート',
+    defaultPath: 'market-terminal-export.json',
     filters: [{ name: 'JSON', extensions: ['json'] }],
   })
   if (result.canceled || !result.filePath) return false
 
-  const exportData = {
-    lists: data.lists.map(l => ({ name: l.name, symbols: l.symbols })),
-  }
   fs.writeFileSync(result.filePath, JSON.stringify(exportData, null, 2))
   return true
 })
 
-ipcMain.handle('import-watchlists', async () => {
+ipcMain.handle('import-data', async () => {
   const result = await dialog.showOpenDialog({
-    title: 'ウォッチリストをインポート',
+    title: 'データをインポート',
     filters: [{ name: 'JSON', extensions: ['json'] }],
     properties: ['openFile'],
   })
@@ -388,34 +397,65 @@ ipcMain.handle('import-watchlists', async () => {
 
   try {
     const raw = fs.readFileSync(result.filePaths[0], 'utf-8')
-    const imported = JSON.parse(raw) as { lists: { name: string; symbols: string[] }[] }
-    if (!Array.isArray(imported.lists)) return null
-
-    const data = loadWatchlists()
-    for (const entry of imported.lists) {
-      if (!entry.name || !Array.isArray(entry.symbols)) continue
-      const existing = data.lists.find(l => l.name === entry.name)
-      if (existing) {
-        // Merge symbols into existing list
-        for (const s of entry.symbols) {
-          const upper = s.toUpperCase()
-          if (!existing.symbols.includes(upper)) {
-            existing.symbols.push(upper)
-          }
-        }
-      } else {
-        // Create new list
-        data.lists.push({
-          id: generateId(),
-          name: entry.name,
-          symbols: entry.symbols.map(s => s.toUpperCase()),
-        })
-      }
+    const imported = JSON.parse(raw)
+    const imported_: { watchlists: boolean; futures: boolean; favorites: boolean } = {
+      watchlists: false, futures: false, favorites: false,
     }
-    saveWatchlists(data)
-    return data
+
+    // Import watchlists
+    if (Array.isArray(imported.lists)) {
+      const data = loadWatchlists()
+      for (const entry of imported.lists) {
+        if (!entry.name || !Array.isArray(entry.symbols)) continue
+        const existing = data.lists.find(l => l.name === entry.name)
+        if (existing) {
+          for (const s of entry.symbols) {
+            const upper = s.toUpperCase()
+            if (!existing.symbols.includes(upper)) {
+              existing.symbols.push(upper)
+            }
+          }
+        } else {
+          data.lists.push({
+            id: generateId(),
+            name: entry.name,
+            symbols: entry.symbols.map((s: string) => s.toUpperCase()),
+          })
+        }
+      }
+      saveWatchlists(data)
+      imported_.watchlists = true
+    }
+
+    // Import futures
+    if (Array.isArray(imported.futures)) {
+      const current = loadFuturesList()
+      for (const entry of imported.futures) {
+        if (!entry.symbol) continue
+        if (!current.some(f => f.symbol === entry.symbol)) {
+          current.push({ symbol: entry.symbol, name: entry.name || entry.symbol, sector: entry.sector || '' })
+        }
+      }
+      saveFuturesList(current)
+      imported_.futures = true
+    }
+
+    // Import favorites
+    if (Array.isArray(imported.favorites)) {
+      const current = loadFavorites()
+      for (const s of imported.favorites) {
+        const upper = (s as string).toUpperCase()
+        if (!current.includes(upper)) {
+          current.push(upper)
+        }
+      }
+      saveFavorites(current)
+      imported_.favorites = true
+    }
+
+    return imported_
   } catch (err) {
-    console.error('import-watchlists error:', err)
+    console.error('import-data error:', err)
     return null
   }
 })

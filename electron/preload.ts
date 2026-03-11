@@ -55,6 +55,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   importWatchlists: () =>
     ipcRenderer.invoke('import-watchlists'),
 
+  exportData: (options: { watchlists: boolean; futures: boolean; favorites: boolean }) =>
+    ipcRenderer.invoke('export-data', options),
+
+  importData: () =>
+    ipcRenderer.invoke('import-data'),
+
   getQuoteSummary: (symbol: string) =>
     ipcRenderer.invoke('get-quote-summary', symbol),
 
