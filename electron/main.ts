@@ -2,7 +2,7 @@ import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import path from 'path'
 import fs from 'fs'
 import { getStockQuotes, getChartData, get5DayChanges, getPreviousDayChanges, getQuoteSummary, getFinancials, clearCache, searchTickers } from './services/marketData'
-import { getConstituents, getSectorsForSymbols, MarketIndex } from './services/constituents'
+import { getConstituents, getSectorsForSymbols, MarketIndex, DEFAULT_FUTURES_LIST, updateFuturesSectorMap } from './services/constituents'
 import { generateMarketCommentary } from './services/aiService'
 import { fetchNewsForSymbols } from './services/newsService'
 
@@ -31,6 +31,7 @@ function createWindow() {
   } else {
     win.loadFile(path.join(DIST, 'index.html'))
   }
+
 }
 
 function openChartWindow(symbol: string) {
@@ -113,10 +114,76 @@ function generateId(): string {
   return `wl_${_nextId++}`
 }
 
+// --- Futures list persistence ---
+
+interface FuturesEntry {
+  symbol: string
+  name: string
+  sector: string
+}
+
+interface FuturesFileData {
+  version: number
+  list: FuturesEntry[]
+}
+
+// Bump this when DEFAULT_FUTURES_LIST changes to force a refresh
+const FUTURES_LIST_VERSION = 2
+
+function getFuturesPath() {
+  return path.join(app.getPath('userData'), 'futures.json')
+}
+
+function loadFuturesList(): FuturesEntry[] {
+  const filePath = getFuturesPath()
+  try {
+    const data = fs.readFileSync(filePath, 'utf-8')
+    const parsed = JSON.parse(data)
+    // Check versioned format
+    if (parsed.version && parsed.version >= FUTURES_LIST_VERSION && Array.isArray(parsed.list)) {
+      updateFuturesSectorMap(parsed.list)
+      return parsed.list
+    }
+    // Old format or outdated version -> replace with new defaults
+    saveFuturesList(DEFAULT_FUTURES_LIST as FuturesEntry[])
+    return [...DEFAULT_FUTURES_LIST]
+  } catch {
+    // First run: use defaults
+    saveFuturesList(DEFAULT_FUTURES_LIST as FuturesEntry[])
+    return [...DEFAULT_FUTURES_LIST]
+  }
+}
+
+function saveFuturesList(list: FuturesEntry[]) {
+  const data: FuturesFileData = { version: FUTURES_LIST_VERSION, list }
+  fs.writeFileSync(getFuturesPath(), JSON.stringify(data, null, 2))
+  updateFuturesSectorMap(list)
+}
+
 // --- IPC Handlers ---
 
 ipcMain.handle('get-constituents', async (_event, market: MarketIndex) => {
+  if (market === 'futures') {
+    const list = loadFuturesList()
+    return list.map(f => ({ symbol: f.symbol, name: f.name, sector: f.sector }))
+  }
   return getConstituents(market)
+})
+
+ipcMain.handle('add-to-futures', async (_event, entry: FuturesEntry) => {
+  const list = loadFuturesList()
+  if (!list.some(f => f.symbol === entry.symbol)) {
+    list.push(entry)
+    saveFuturesList(list)
+  }
+  return list
+})
+
+ipcMain.handle('remove-from-futures', async (_event, symbol: string) => {
+  let list = loadFuturesList()
+  list = list.filter(f => f.symbol !== symbol)
+  saveFuturesList(list)
+  return list
 })
 
 ipcMain.handle('get-stock-quotes', async (_event, symbols: string[]) => {

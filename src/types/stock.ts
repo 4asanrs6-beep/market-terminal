@@ -121,6 +121,8 @@ declare global {
       addTickersToWatchlist: (listId: string, tickers: string[]) => Promise<WatchlistsData>
       removeFromWatchlist: (listId: string, ticker: string) => Promise<WatchlistsData>
       searchTickers: (query: string) => Promise<SearchResult[]>
+      addToFutures: (entry: { symbol: string; name: string; sector: string }) => Promise<any>
+      removeFromFutures: (symbol: string) => Promise<any>
       exportWatchlists: () => Promise<boolean>
       importWatchlists: () => Promise<WatchlistsData | null>
       getQuoteSummary: (symbol: string) => Promise<QuoteSummary | null>

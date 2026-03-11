@@ -14,6 +14,7 @@ type PanelState = 'idle' | 'loading' | 'streaming' | 'done' | 'error'
 function buildMarketSummary(quotes: StockQuote[], activeMarket: MarketIndex): MarketSummary {
   const marketName = activeMarket === 'sp500' ? 'S&P 500'
     : activeMarket === 'nasdaq100' ? 'NASDAQ 100'
+    : activeMarket === 'futures' ? '先物・指数・通貨'
     : 'Watchlist'
 
   const advancers = quotes.filter(q => q.regularMarketChangePercent > 0).length
@@ -22,29 +23,57 @@ function buildMarketSummary(quotes: StockQuote[], activeMarket: MarketIndex): Ma
     ? quotes.reduce((sum, q) => sum + q.regularMarketChangePercent, 0) / quotes.length
     : 0
 
-  // Sector aggregation
-  const sectorMap = new Map<string, { total: number; count: number }>()
+  // 5-day average
+  const with5Day = quotes.filter(q => q.fiveDayChangePercent != null)
+  const avg5DayChangePercent = with5Day.length > 0
+    ? with5Day.reduce((sum, q) => sum + q.fiveDayChangePercent!, 0) / with5Day.length
+    : undefined
+
+  // Sector aggregation (daily)
+  const sectorMap = new Map<string, { total: number; count: number; total5d: number; count5d: number }>()
   for (const q of quotes) {
     const sector = q.sector || 'Unknown'
-    const entry = sectorMap.get(sector) || { total: 0, count: 0 }
+    const entry = sectorMap.get(sector) || { total: 0, count: 0, total5d: 0, count5d: 0 }
     entry.total += q.regularMarketChangePercent
     entry.count += 1
+    if (q.fiveDayChangePercent != null) {
+      entry.total5d += q.fiveDayChangePercent
+      entry.count5d += 1
+    }
     sectorMap.set(sector, entry)
   }
   const sectors = Array.from(sectorMap.entries())
     .map(([name, { total, count }]) => ({ name, avgChange: total / count, count }))
     .sort((a, b) => b.avgChange - a.avgChange)
 
-  // Top gainers / losers / volume
+  // Sector 5-day aggregation
+  const sectors5Day = Array.from(sectorMap.entries())
+    .filter(([, d]) => d.count5d > 0)
+    .map(([name, { total5d, count5d, count }]) => ({ name, avgChange: total5d / count5d, count }))
+    .sort((a, b) => b.avgChange - a.avgChange)
+
+  // Top gainers / losers / volume (with 5-day)
   const sorted = [...quotes].sort((a, b) => b.regularMarketChangePercent - a.regularMarketChangePercent)
   const topGainers = sorted.slice(0, 10).map(q => ({
-    symbol: q.symbol, name: q.shortName, price: q.regularMarketPrice, changePercent: q.regularMarketChangePercent,
+    symbol: q.symbol, name: q.shortName, price: q.regularMarketPrice,
+    changePercent: q.regularMarketChangePercent, fiveDayChange: q.fiveDayChangePercent,
   }))
   const topLosers = sorted.slice(-10).reverse().map(q => ({
-    symbol: q.symbol, name: q.shortName, price: q.regularMarketPrice, changePercent: q.regularMarketChangePercent,
+    symbol: q.symbol, name: q.shortName, price: q.regularMarketPrice,
+    changePercent: q.regularMarketChangePercent, fiveDayChange: q.fiveDayChangePercent,
   }))
   const topVolume = [...quotes].sort((a, b) => b.regularMarketVolume - a.regularMarketVolume).slice(0, 10).map(q => ({
     symbol: q.symbol, name: q.shortName, volume: q.regularMarketVolume, changePercent: q.regularMarketChangePercent,
+  }))
+
+  // Weekly top movers (5-day)
+  const sorted5d = [...quotes].filter(q => q.fiveDayChangePercent != null)
+    .sort((a, b) => b.fiveDayChangePercent! - a.fiveDayChangePercent!)
+  const weeklyGainers = sorted5d.slice(0, 10).map(q => ({
+    symbol: q.symbol, name: q.shortName, fiveDayChange: q.fiveDayChangePercent!,
+  }))
+  const weeklyLosers = sorted5d.slice(-10).reverse().map(q => ({
+    symbol: q.symbol, name: q.shortName, fiveDayChange: q.fiveDayChangePercent!,
   }))
 
   // Upcoming earnings (within 7 days)
@@ -65,10 +94,14 @@ function buildMarketSummary(quotes: StockQuote[], activeMarket: MarketIndex): Ma
     advancers,
     decliners,
     avgChangePercent,
+    avg5DayChangePercent,
     sectors,
+    sectors5Day,
     topGainers,
     topLosers,
     topVolume,
+    weeklyGainers,
+    weeklyLosers,
     upcomingEarnings,
   }
 }
@@ -106,10 +139,19 @@ export function AIMarketPanel({ quotes, activeMarket, onClose }: AIMarketPanelPr
     }
   }, [])
 
-  // Auto-scroll during streaming
+  // Auto-scroll during streaming, reset to top when done
+  const wasStreamingRef = useRef(false)
   useEffect(() => {
-    if (state === 'streaming' && contentRef.current) {
-      contentRef.current.scrollTop = contentRef.current.scrollHeight
+    if (state === 'streaming') {
+      wasStreamingRef.current = true
+      if (contentRef.current) {
+        contentRef.current.scrollTop = contentRef.current.scrollHeight
+      }
+    } else if (state === 'done' && wasStreamingRef.current) {
+      wasStreamingRef.current = false
+      if (contentRef.current) {
+        contentRef.current.scrollTop = 0
+      }
     }
   }, [commentary, state])
 

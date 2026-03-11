@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import type { MarketIndex } from './types/stock'
 import { useMarketData, useWatchlists } from './hooks/useMarketData'
 import { Header } from './components/Header'
@@ -6,6 +6,7 @@ import { MarketTabs } from './components/MarketTabs'
 import { StockTable, type ViewMode } from './components/StockTable'
 import { SectorHeatmap } from './components/SectorHeatmap'
 import { AddTickerModal } from './components/AddTickerModal'
+import { AddFuturesModal } from './components/AddFuturesModal'
 import { AIMarketPanel } from './components/AIMarketPanel'
 import styles from './styles/App.module.css'
 
@@ -13,6 +14,7 @@ export default function App() {
   const [activeMarket, setActiveMarket] = useState<MarketIndex>('sp500')
   const [searchQuery, setSearchQuery] = useState('')
   const [showAddModal, setShowAddModal] = useState(false)
+  const [showAddFuturesModal, setShowAddFuturesModal] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('table')
   const [showAIPanel, setShowAIPanel] = useState(false)
 
@@ -28,7 +30,7 @@ export default function App() {
     importWatchlists,
   } = useWatchlists()
 
-  const { quotes, loading, deferredLoading, refresh, allWatchlistSymbols } = useMarketData(activeMarket, watchlists)
+  const { quotes, loading, deferredLoading, refresh, reload, allWatchlistSymbols } = useMarketData(activeMarket, watchlists)
 
   const handleSelectStock = useCallback((symbol: string) => {
     window.electronAPI.openChartWindow(symbol)
@@ -47,6 +49,33 @@ export default function App() {
       setActiveMarket('sp500')
     }
   }, [activeMarket, deleteWatchlist])
+
+  const isFuturesMarket = activeMarket === 'futures'
+
+  const handleAddButtonClick = useCallback(() => {
+    if (isFuturesMarket) {
+      setShowAddFuturesModal(true)
+    } else {
+      setShowAddModal(true)
+    }
+  }, [isFuturesMarket])
+
+  const handleAddToFutures = useCallback(async (entry: { symbol: string; name: string; sector: string }) => {
+    await window.electronAPI.addToFutures(entry)
+    await window.electronAPI.clearCache()
+    reload()
+  }, [reload])
+
+  const handleRemoveFromFutures = useCallback(async (symbol: string) => {
+    await window.electronAPI.removeFromFutures(symbol)
+    await window.electronAPI.clearCache()
+    reload()
+  }, [reload])
+
+  const futuresSymbolSet = useMemo(() => {
+    if (!isFuturesMarket) return new Set<string>()
+    return new Set(quotes.map(q => q.symbol))
+  }, [isFuturesMarket, quotes])
 
   const handleToggleAI = useCallback(() => {
     setShowAIPanel(prev => !prev)
@@ -67,7 +96,7 @@ export default function App() {
         <MarketTabs
           activeMarket={activeMarket}
           onMarketChange={setActiveMarket}
-          onAddTicker={() => setShowAddModal(true)}
+          onAddTicker={handleAddButtonClick}
           watchlists={watchlists}
           onCreateWatchlist={createWatchlist}
           onRenameWatchlist={renameWatchlist}
@@ -103,6 +132,8 @@ export default function App() {
               onRemoveFromWatchlist={removeFromWatchlist}
               viewMode={viewMode}
               onViewModeChange={setViewMode}
+              isFuturesMarket={isFuturesMarket}
+              onRemoveFromFutures={handleRemoveFromFutures}
             />
           )}
         </div>
@@ -124,6 +155,13 @@ export default function App() {
         onAdd={handleAddTickers}
         watchlists={watchlists}
         activeListId={activeMarket.startsWith('watchlist:') ? activeMarket.slice('watchlist:'.length) : null}
+      />
+
+      <AddFuturesModal
+        isOpen={showAddFuturesModal}
+        onClose={() => setShowAddFuturesModal(false)}
+        onAdd={handleAddToFutures}
+        existingSymbols={futuresSymbolSet}
       />
     </div>
   )

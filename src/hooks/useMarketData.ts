@@ -23,7 +23,7 @@ export function useMarketData(market: MarketIndex, watchlists: WatchlistInfo[]) 
     return Array.from(set)
   }, [watchlists])
 
-  const fetchQuotes = useCallback(async (symbols: string[], reqId: number) => {
+  const fetchQuotes = useCallback(async (symbols: string[], reqId: number, constituentNames?: Record<string, string>) => {
     if (symbols.length === 0) {
       setQuotes([])
       setLoading(false)
@@ -32,6 +32,14 @@ export function useMarketData(market: MarketIndex, watchlists: WatchlistInfo[]) 
     try {
       const data = await window.electronAPI.getStockQuotes(symbols)
       if (requestIdRef.current !== reqId) return // stale request
+      // Override shortName with constituent names if available (useful for futures with Japanese names)
+      if (constituentNames) {
+        for (const q of data) {
+          if (constituentNames[q.symbol]) {
+            q.shortName = constituentNames[q.symbol]
+          }
+        }
+      }
       setQuotes(data)
       setLoading(false)
 
@@ -82,7 +90,14 @@ export function useMarketData(market: MarketIndex, watchlists: WatchlistInfo[]) 
         if (requestIdRef.current !== reqId) return
         setConstituents(list)
         const symbols = list.map(c => c.symbol)
-        await fetchQuotes(symbols, reqId)
+        // Build name map for non-stock markets (futures etc.) where constituent names are more descriptive
+        const nameMap: Record<string, string> = {}
+        for (const c of list) {
+          if (c.name && c.name !== c.symbol) {
+            nameMap[c.symbol] = c.name
+          }
+        }
+        await fetchQuotes(symbols, reqId, Object.keys(nameMap).length > 0 ? nameMap : undefined)
       }
     } catch (err) {
       if (requestIdRef.current !== reqId) return
@@ -117,6 +132,7 @@ export function useMarketData(market: MarketIndex, watchlists: WatchlistInfo[]) 
     loading,
     deferredLoading,
     refresh,
+    reload: loadMarketData,
     allWatchlistSymbols,
   }
 }

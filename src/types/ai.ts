@@ -10,10 +10,14 @@ export interface MarketSummary {
   decliners: number
   avgChangePercent: number
   sectors: { name: string; avgChange: number; count: number }[]
-  topGainers: { symbol: string; name: string; price: number; changePercent: number }[]
-  topLosers: { symbol: string; name: string; price: number; changePercent: number }[]
+  topGainers: { symbol: string; name: string; price: number; changePercent: number; fiveDayChange?: number }[]
+  topLosers: { symbol: string; name: string; price: number; changePercent: number; fiveDayChange?: number }[]
   topVolume: { symbol: string; name: string; volume: number; changePercent: number }[]
   upcomingEarnings: { symbol: string; name: string; date: string }[]
+  avg5DayChangePercent?: number
+  sectors5Day?: { name: string; avgChange: number; count: number }[]
+  weeklyGainers?: { symbol: string; name: string; fiveDayChange: number }[]
+  weeklyLosers?: { symbol: string; name: string; fiveDayChange: number }[]
 }
 
 export interface NewsItem {

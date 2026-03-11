@@ -42,6 +42,7 @@ const tabStyle = {
 const fixedTabs: { id: MarketIndex; label: string; sub: string }[] = [
   { id: 'sp500', label: 'S&P 500', sub: '全構成銘柄' },
   { id: 'nasdaq100', label: 'NASDAQ 100', sub: '全構成銘柄' },
+  { id: 'futures', label: '先物・指数・通貨', sub: '主要先物・FX・暗号資産' },
 ]
 
 interface CtxMenu {

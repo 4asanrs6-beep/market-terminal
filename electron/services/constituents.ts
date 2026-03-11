@@ -1,4 +1,4 @@
-export type MarketIndex = 'sp500' | 'nasdaq100'
+export type MarketIndex = 'sp500' | 'nasdaq100' | 'futures'
 
 export interface ConstituentInfo {
   symbol: string
@@ -104,13 +104,13 @@ for (const [sector, symbols] of Object.entries(SECTOR_MAP)) {
 }
 
 export function getSectorForSymbol(symbol: string): string {
-  return _symbolSectorMap[symbol] || ''
+  return _symbolSectorMap[symbol] || _futuresSectorMap?.[symbol] || ''
 }
 
 export function getSectorsForSymbols(symbols: string[]): Record<string, string> {
   const result: Record<string, string> = {}
   for (const sym of symbols) {
-    const sector = _symbolSectorMap[sym]
+    const sector = _symbolSectorMap[sym] || _futuresSectorMap?.[sym]
     if (sector) result[sym] = sector
   }
   return result
@@ -212,6 +212,103 @@ const NASDAQ100_SYMBOLS: string[] = [
   'ZS',
 ]
 
+// Futures: symbol -> { name, category }
+// カテゴリ順: 株価指数 → ボラティリティ → 通貨 → 暗号資産 → 債券 → エネルギー → 貴金属 → 農産物・畜産
+export const DEFAULT_FUTURES_LIST: { symbol: string; name: string; sector: string }[] = [
+  // ── 株価指数 (米国) ──
+  { symbol: 'ES=F',    name: 'S&P 500 先物',              sector: '株価指数' },
+  { symbol: 'NQ=F',    name: 'NASDAQ 100 先物',            sector: '株価指数' },
+  { symbol: 'YM=F',    name: 'ダウ平均 先物',               sector: '株価指数' },
+  { symbol: 'RTY=F',   name: 'ラッセル 2000 先物',           sector: '株価指数' },
+  // ── 株価指数 (日本) ──
+  { symbol: '^N225',   name: '日経平均株価',                 sector: '株価指数' },
+  { symbol: 'NKD=F',   name: '日経225 先物 (CME)',           sector: '株価指数' },
+  { symbol: '1306.T',  name: 'TOPIX連動ETF',                  sector: '株価指数' },
+  // ── 株価指数 (欧州) ──
+  { symbol: '^STOXX50E', name: 'ユーロストックス50',           sector: '株価指数' },
+  { symbol: '^FTSE',   name: 'FTSE 100 (英)',               sector: '株価指数' },
+  { symbol: '^GDAXI',  name: 'DAX (独)',                    sector: '株価指数' },
+  { symbol: '^FCHI',   name: 'CAC 40 (仏)',                 sector: '株価指数' },
+  // ── 株価指数 (アジア・新興国) ──
+  { symbol: '^HSI',    name: 'ハンセン指数 (香港)',            sector: '株価指数' },
+  { symbol: '000001.SS', name: '上海総合指数',                sector: '株価指数' },
+  { symbol: '^KS11',   name: 'KOSPI (韓国)',                sector: '株価指数' },
+  { symbol: '^TWII',   name: '台湾加権指数',                 sector: '株価指数' },
+  { symbol: '^BSESN',  name: 'SENSEX (印)',                 sector: '株価指数' },
+  { symbol: '^AXJO',   name: 'ASX 200 (豪)',                sector: '株価指数' },
+
+  // ── ボラティリティ ──
+  { symbol: '^VIX',    name: 'VIX 恐怖指数 (米)',             sector: 'ボラティリティ' },
+  { symbol: '2035.T',  name: '日経VI先物ETN (日本版VIX)',       sector: 'ボラティリティ' },
+
+  // ── 通貨 (FX) ── ドルインデックス
+  { symbol: 'DX-Y.NYB',  name: 'ドルインデックス (DXY)',      sector: '通貨' },
+  // ── 通貨 (FX) ── 対ドル主要通貨
+  { symbol: 'JPY=X',     name: 'USD/JPY ドル円',            sector: '通貨' },
+  { symbol: 'EURUSD=X',  name: 'EUR/USD ユーロドル',         sector: '通貨' },
+  { symbol: 'GBPUSD=X',  name: 'GBP/USD ポンドドル',         sector: '通貨' },
+  { symbol: 'AUDUSD=X',  name: 'AUD/USD 豪ドル',            sector: '通貨' },
+  { symbol: 'NZDUSD=X',  name: 'NZD/USD NZドル',            sector: '通貨' },
+  { symbol: 'USDCAD=X',  name: 'USD/CAD カナダドル',         sector: '通貨' },
+  { symbol: 'USDCHF=X',  name: 'USD/CHF スイスフラン',       sector: '通貨' },
+  { symbol: 'USDCNY=X',  name: 'USD/CNY 人民元',            sector: '通貨' },
+  // ── 通貨 (FX) ── クロス円
+  { symbol: 'EURJPY=X',  name: 'EUR/JPY ユーロ円',           sector: '通貨' },
+  { symbol: 'GBPJPY=X',  name: 'GBP/JPY ポンド円',           sector: '通貨' },
+  { symbol: 'AUDJPY=X',  name: 'AUD/JPY 豪ドル円',           sector: '通貨' },
+  { symbol: 'CHFJPY=X',  name: 'CHF/JPY スイスフラン円',      sector: '通貨' },
+  // ── 通貨 (FX) ── 先物
+  { symbol: '6J=F',      name: '円先物 (CME)',               sector: '通貨' },
+  { symbol: '6E=F',      name: 'ユーロ先物 (CME)',            sector: '通貨' },
+  { symbol: '6B=F',      name: 'ポンド先物 (CME)',            sector: '通貨' },
+
+  // ── 暗号資産 ──
+  { symbol: 'BTC-USD', name: 'ビットコイン (BTC)',          sector: '暗号資産' },
+  { symbol: 'ETH-USD', name: 'イーサリアム (ETH)',          sector: '暗号資産' },
+
+  // ── 債券 (米国) ──
+  { symbol: '^TNX',  name: '米10年国債利回り',               sector: '債券' },
+  { symbol: '^TYX',  name: '米30年国債利回り',               sector: '債券' },
+  { symbol: '^FVX',  name: '米5年国債利回り',                sector: '債券' },
+  { symbol: '^IRX',  name: '米3ヶ月国債利回り',              sector: '債券' },
+  { symbol: 'ZT=F',  name: '米2年国債先物',                 sector: '債券' },
+  { symbol: 'ZF=F',  name: '米5年国債先物',                 sector: '債券' },
+  { symbol: 'ZN=F',  name: '米10年国債先物',                sector: '債券' },
+  { symbol: 'ZB=F',  name: '米30年国債先物',                sector: '債券' },
+  // ── 債券 (日本) ──
+  { symbol: '2510.T',  name: '日本国債10年ETF',              sector: '債券' },
+
+  // ── エネルギー ──
+  { symbol: 'CL=F', name: 'WTI 原油',                    sector: 'エネルギー' },
+  { symbol: 'BZ=F', name: 'ブレント原油',                  sector: 'エネルギー' },
+  { symbol: 'NG=F', name: '天然ガス',                     sector: 'エネルギー' },
+  { symbol: 'RB=F', name: 'ガソリン (RBOB)',               sector: 'エネルギー' },
+  { symbol: 'HO=F', name: 'ヒーティングオイル',              sector: 'エネルギー' },
+
+  // ── 貴金属・金属 ──
+  { symbol: 'GC=F', name: '金 (Gold)',                    sector: '貴金属' },
+  { symbol: 'SI=F', name: '銀 (Silver)',                  sector: '貴金属' },
+  { symbol: 'PL=F', name: 'プラチナ',                     sector: '貴金属' },
+  { symbol: 'PA=F', name: 'パラジウム',                    sector: '貴金属' },
+  { symbol: 'HG=F', name: '銅 (Copper)',                  sector: '貴金属' },
+
+  // ── 農産物 ──
+  { symbol: 'ZC=F',  name: 'コーン',                      sector: '農産物' },
+  { symbol: 'ZS=F',  name: '大豆',                        sector: '農産物' },
+  { symbol: 'ZW=F',  name: '小麦',                        sector: '農産物' },
+  { symbol: 'KC=F',  name: 'コーヒー',                     sector: '農産物' },
+  { symbol: 'CC=F',  name: 'ココア',                       sector: '農産物' },
+  { symbol: 'SB=F',  name: '砂糖',                        sector: '農産物' },
+  { symbol: 'CT=F',  name: '綿花',                        sector: '農産物' },
+  { symbol: 'LBS=F', name: '木材',                        sector: '農産物' },
+  { symbol: 'OJ=F',  name: 'オレンジジュース',               sector: '農産物' },
+
+  // ── 畜産 ──
+  { symbol: 'LE=F', name: '生牛 (Live Cattle)',            sector: '畜産' },
+  { symbol: 'GF=F', name: 'フィーダーキャトル',              sector: '畜産' },
+  { symbol: 'HE=F', name: '赤身豚肉 (Lean Hogs)',          sector: '畜産' },
+]
+
 function symbolsToConstituents(symbols: string[]): ConstituentInfo[] {
   return symbols.map(symbol => ({
     symbol,
@@ -226,7 +323,23 @@ export function getConstituents(market: MarketIndex): ConstituentInfo[] {
       return symbolsToConstituents(SP500_SYMBOLS)
     case 'nasdaq100':
       return symbolsToConstituents(NASDAQ100_SYMBOLS)
+    case 'futures':
+      return DEFAULT_FUTURES_LIST.map(f => ({ symbol: f.symbol, name: f.name, sector: f.sector }))
     default:
       return []
   }
+}
+
+// Sector lookup for futures symbols (rebuildable)
+let _futuresSectorMap: Record<string, string> = {}
+function _buildFuturesSectorMap(list: { symbol: string; sector: string }[]) {
+  _futuresSectorMap = {}
+  for (const f of list) {
+    _futuresSectorMap[f.symbol] = f.sector
+  }
+}
+_buildFuturesSectorMap(DEFAULT_FUTURES_LIST)
+
+export function updateFuturesSectorMap(list: { symbol: string; sector: string }[]) {
+  _buildFuturesSectorMap(list)
 }

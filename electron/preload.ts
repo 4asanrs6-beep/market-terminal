@@ -43,6 +43,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   searchTickers: (query: string) =>
     ipcRenderer.invoke('search-tickers', query),
 
+  addToFutures: (entry: { symbol: string; name: string; sector: string }) =>
+    ipcRenderer.invoke('add-to-futures', entry),
+
+  removeFromFutures: (symbol: string) =>
+    ipcRenderer.invoke('remove-from-futures', symbol),
+
   exportWatchlists: () =>
     ipcRenderer.invoke('export-watchlists'),
 

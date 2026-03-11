@@ -19,6 +19,8 @@ interface StockTableProps {
   onRemoveFromWatchlist: (listId: string, ticker: string) => void
   viewMode: ViewMode
   onViewModeChange: (mode: ViewMode) => void
+  isFuturesMarket?: boolean
+  onRemoveFromFutures?: (symbol: string) => void
 }
 
 function formatNumber(n: number, decimals = 2): string {
@@ -141,9 +143,12 @@ export function StockTable({
   onRemoveFromWatchlist,
   viewMode,
   onViewModeChange,
+  isFuturesMarket,
+  onRemoveFromFutures,
 }: StockTableProps) {
   const [sortField, setSortField] = useState<SortField>('regularMarketChangePercent')
   const [sortDir, setSortDir] = useState<SortDirection>('desc')
+  const [useListOrder, setUseListOrder] = useState(!!isFuturesMarket)
   const [refreshing, setRefreshing] = useState(false)
   const [activeSector, setActiveSector] = useState<string>('all')
   const [colWidths, setColWidths] = useState<number[]>(COLUMNS.map(c => c.defaultWidth))
@@ -151,11 +156,18 @@ export function StockTable({
 
   const resizingRef = useRef<{ colIndex: number; startX: number; startWidth: number } | null>(null)
 
-  // Reset sector filter when market/quotes change (different symbol set)
+  // Reset sector filter and sort when market/quotes change (different symbol set)
   const quotesKey = useMemo(() => quotes.map(q => q.symbol).sort().join(','), [quotes])
   useEffect(() => {
     setActiveSector('all')
-  }, [quotesKey])
+    if (isFuturesMarket) {
+      setUseListOrder(true)
+    } else {
+      setUseListOrder(false)
+      setSortField('regularMarketChangePercent')
+      setSortDir('desc')
+    }
+  }, [quotesKey, isFuturesMarket])
 
   const watchlistSet = useMemo(() => new Set(watchlist), [watchlist])
 
@@ -168,6 +180,7 @@ export function StockTable({
 
   const handleSort = (field: SortField | 'sector') => {
     if (field === 'sector') return // not sortable
+    setUseListOrder(false)
     if (sortField === field) {
       setSortDir(d => d === 'asc' ? 'desc' : 'asc')
     } else {
@@ -225,14 +238,21 @@ export function StockTable({
     })
   }, [watchlistSet])
 
-  // Collect unique sectors from data
+  // Collect unique sectors from data (preserving order of appearance for futures)
   const sectors = useMemo(() => {
-    const set = new Set<string>()
+    const seen = new Set<string>()
+    const ordered: string[] = []
     for (const q of quotes) {
-      if (q.sector) set.add(q.sector)
+      if (q.sector && !seen.has(q.sector)) {
+        seen.add(q.sector)
+        ordered.push(q.sector)
+      }
     }
-    return Array.from(set).sort((a, b) => sectorJa(a).localeCompare(sectorJa(b), 'ja'))
-  }, [quotes])
+    if (!isFuturesMarket) {
+      ordered.sort((a, b) => sectorJa(a).localeCompare(sectorJa(b), 'ja'))
+    }
+    return ordered
+  }, [quotes, isFuturesMarket])
 
   const filtered = useMemo(() => {
     let data = [...quotes]
@@ -249,36 +269,38 @@ export function StockTable({
       )
     }
 
-    data.sort((a, b) => {
-      let aVal: any
-      let bVal: any
-      if (sortField === 'prePostMarketChangePercent') {
-        aVal = a.postMarketChangePercent ?? a.preMarketChangePercent ?? undefined
-        bVal = b.postMarketChangePercent ?? b.preMarketChangePercent ?? undefined
-      } else {
-        aVal = a[sortField as keyof StockQuote]
-        bVal = b[sortField as keyof StockQuote]
-      }
-      // Handle earningsDate: undefined/null → sort to end
-      if (sortField === 'earningsDate') {
-        const aStr = (aVal as string | undefined) || ''
-        const bStr = (bVal as string | undefined) || ''
-        if (!aStr && !bStr) return 0
-        if (!aStr) return 1
-        if (!bStr) return -1
-        return sortDir === 'asc' ? aStr.localeCompare(bStr) : bStr.localeCompare(aStr)
-      }
-      const aNum = typeof aVal === 'number' ? aVal : (aVal == null ? -Infinity : 0)
-      const bNum = typeof bVal === 'number' ? bVal : (bVal == null ? -Infinity : 0)
-      if (typeof aVal === 'string' && typeof bVal === 'string') {
+    if (!useListOrder) {
+      data.sort((a, b) => {
+        let aVal: any
+        let bVal: any
+        if (sortField === 'prePostMarketChangePercent') {
+          aVal = a.postMarketChangePercent ?? a.preMarketChangePercent ?? undefined
+          bVal = b.postMarketChangePercent ?? b.preMarketChangePercent ?? undefined
+        } else {
+          aVal = a[sortField as keyof StockQuote]
+          bVal = b[sortField as keyof StockQuote]
+        }
+        // Handle earningsDate: undefined/null → sort to end
+        if (sortField === 'earningsDate') {
+          const aStr = (aVal as string | undefined) || ''
+          const bStr = (bVal as string | undefined) || ''
+          if (!aStr && !bStr) return 0
+          if (!aStr) return 1
+          if (!bStr) return -1
+          return sortDir === 'asc' ? aStr.localeCompare(bStr) : bStr.localeCompare(aStr)
+        }
+        const aNum = typeof aVal === 'number' ? aVal : (aVal == null ? -Infinity : 0)
+        const bNum = typeof bVal === 'number' ? bVal : (bVal == null ? -Infinity : 0)
+        if (typeof aVal === 'string' && typeof bVal === 'string') {
+          return sortDir === 'asc'
+            ? aVal.localeCompare(bVal)
+            : bVal.localeCompare(aVal)
+        }
         return sortDir === 'asc'
-          ? aVal.localeCompare(bVal)
-          : bVal.localeCompare(aVal)
-      }
-      return sortDir === 'asc'
-        ? (aNum as number) - (bNum as number)
-        : (bNum as number) - (aNum as number)
-    })
+          ? (aNum as number) - (bNum as number)
+          : (bNum as number) - (aNum as number)
+      })
+    }
 
     return data
   }, [quotes, searchQuery, sortField, sortDir, activeSector])
@@ -496,10 +518,25 @@ export function StockTable({
               </button>
             )
           })}
-          {watchlists.length === 0 && (
+          {watchlists.length === 0 && !isFuturesMarket && (
             <div className={styles.contextMenuItem} style={{ color: 'var(--text-muted)', cursor: 'default' }}>
               リストがありません
             </div>
+          )}
+          {isFuturesMarket && onRemoveFromFutures && (
+            <>
+              {watchlists.length > 0 && <div style={{ borderTop: '1px solid var(--border-color)', margin: '4px 0' }} />}
+              <button
+                className={styles.contextMenuItem}
+                style={{ color: 'var(--negative)' }}
+                onClick={() => {
+                  onRemoveFromFutures(contextMenu.symbol)
+                  setContextMenu(null)
+                }}
+              >
+                リストから削除
+              </button>
+            </>
           )}
         </div>
       )}
